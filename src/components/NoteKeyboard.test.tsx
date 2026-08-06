@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { NoteKeyboard } from './NoteKeyboard'
 
 function KeyboardHarness({ slots = 3 }: { slots?: number }) {
@@ -25,5 +25,23 @@ describe('NoteKeyboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'B' }))
     fireEvent.click(screen.getByRole('button', { name: '清除' }))
     expect(screen.getByRole('button', { name: '第 1 个音' })).toHaveTextContent('—')
+  })
+
+  it('lets a submitted note slot play its filled value while keeping the keyboard locked', () => {
+    const onValuePlay = vi.fn()
+    render(
+      <NoteKeyboard
+        values={['E', 'G', 'C']}
+        correctValues={['E', 'G', 'C']}
+        activeIndex={0}
+        disabled
+        onActiveIndexChange={() => undefined}
+        onChange={() => undefined}
+        onValuePlay={onValuePlay}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /第 2 个音，当前为 G/ }))
+    expect(onValuePlay).toHaveBeenCalledWith('G', 1)
+    expect(screen.getByRole('button', { name: 'C' })).toBeDisabled()
   })
 })

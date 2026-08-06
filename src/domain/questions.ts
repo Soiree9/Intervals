@@ -73,17 +73,30 @@ function intervalCandidates(settings: IntervalSettings): Array<{ lower: NoteSpel
   return candidates
 }
 
-function intervalOptions(answer: IntervalIdentity, difficulty: IntervalSettings['difficulty'], random: RandomSource): IntervalIdentity[] {
+export function intervalOptionsFor(degrees: IntervalSettings['degrees'], difficulty: IntervalSettings['difficulty']): IntervalIdentity[] {
   const basicLabels = new Set(['小二度', '大二度', '小三度', '大三度', '纯四度', '增四度', '减五度', '纯五度', '小六度', '大六度', '小七度', '大七度'])
-  const pool = ALL_INTERVAL_IDENTITIES
-    .filter((identity) => identity.label !== answer.label)
+  return ALL_INTERVAL_IDENTITIES
+    .filter((identity) => degrees.includes(identity.degree))
     .filter((identity) => difficulty === 'advanced' || basicLabels.has(identity.label))
-    .sort((left, right) => {
-      const leftScore = Math.abs(left.semitones - answer.semitones) * 2 + Math.abs(left.degree - answer.degree) - (left.degree === answer.degree ? 4 : 0)
-      const rightScore = Math.abs(right.semitones - answer.semitones) * 2 + Math.abs(right.degree - answer.degree) - (right.degree === answer.degree ? 4 : 0)
-      return leftScore - rightScore
-    })
-  return shuffle([answer, ...pool.slice(0, 5)], random)
+}
+
+export function createIntervalExample(identity: IntervalIdentity): [NoteSpelling, NoteSpelling] {
+  const notes = writtenNotes([0, -1, 1])
+  const candidates: Array<[NoteSpelling, NoteSpelling]> = []
+  for (const lower of notes.filter((note) => note.midi >= 60 && note.midi < 72)) {
+    for (const upper of notes) {
+      if (upper.midi <= lower.midi) continue
+      try {
+        if (analyzeInterval(lower, upper).label === identity.label) candidates.push([lower, upper])
+      } catch {
+        // Keep searching for a simple, single-accidental spelling.
+      }
+    }
+  }
+  const accidentalCount = (pair: [NoteSpelling, NoteSpelling]) => Math.abs(pair[0].accidental) + Math.abs(pair[1].accidental)
+  candidates.sort((left, right) => accidentalCount(left) - accidentalCount(right) || Math.abs(left[0].midi - 60) - Math.abs(right[0].midi - 60))
+  if (!candidates[0]) throw new Error(`No playable example for ${identity.label}.`)
+  return candidates[0]
 }
 
 export function createIntervalQuestion(settings: IntervalSettings, random: RandomSource = Math.random): IntervalQuestion {
@@ -94,7 +107,7 @@ export function createIntervalQuestion(settings: IntervalSettings, random: Rando
     kind: 'interval',
     id: randomId('interval'),
     ...candidate,
-    options: intervalOptions(candidate.answer, settings.difficulty, random),
+    options: intervalOptionsFor(settings.degrees, settings.difficulty),
   }
 }
 
@@ -127,9 +140,9 @@ function chooseTriad(settings: TriadSettings, random: RandomSource) {
   return buildTriad(key, degree)
 }
 
-export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = Math.random): TriadFillQuestion {
+export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = Math.random, forcedInversion?: Inversion): TriadFillQuestion {
   const triad = chooseTriad(settings, random)
-  const inversion = Math.floor(random() * 3) as Inversion
+  const inversion = forcedInversion ?? Math.floor(random() * 3) as Inversion
   const notes = createVoicing(triad.tones, inversion)
   return {
     kind: 'triad-fill',
@@ -156,12 +169,20 @@ export function createChordToneQuestion(settings: TriadSettings, random: RandomS
   }
 }
 
-export function createSession(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, count = 10): PracticeQuestion[] {
-  return Array.from({ length: count }, () => {
-    if (kind === 'interval') return createIntervalQuestion(intervalSettings)
-    if (kind === 'triad-fill') return createTriadFillQuestion(triadSettings)
-    return createChordToneQuestion(triadSettings)
-  })
+function balancedInversionOrder(count: number, random: RandomSource): Inversion[] {
+  const inversions: Inversion[] = []
+  while (inversions.length + 3 <= count) inversions.push(0, 1, 2)
+  inversions.push(...shuffle<Inversion>([0, 1, 2], random).slice(0, count - inversions.length))
+  return shuffle(inversions, random)
+}
+
+export function createSession(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, count = 10, random: RandomSource = Math.random): PracticeQuestion[] {
+  if (kind === 'triad-fill') {
+    return balancedInversionOrder(count, random).map((inversion) => createTriadFillQuestion(triadSettings, random, inversion))
+  }
+  return Array.from({ length: count }, () => kind === 'interval'
+    ? createIntervalQuestion(intervalSettings, random)
+    : createChordToneQuestion(triadSettings, random))
 }
 
 export function questionStorageKey(question: PracticeQuestion): string {

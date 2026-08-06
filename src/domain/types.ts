@@ -84,6 +84,7 @@ export interface TriadSettings {
 }
 
 export interface AppSettings {
+  showOctaves: boolean
   interval: IntervalSettings
   triad: TriadSettings
 }

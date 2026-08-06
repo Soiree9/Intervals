@@ -6,6 +6,7 @@ import {
   buildTriad,
   makeNote,
   pitchName,
+  triadSolfege,
 } from './music'
 
 describe('interval analysis', () => {
@@ -37,5 +38,12 @@ describe('major keys and diatonic triads', () => {
       expect([2, 3, 6].map((degree) => buildTriad(key, degree).quality)).toEqual(['minor', 'minor', 'minor'])
       expect(buildTriad(key, 7).quality).toBe('diminished')
     }
+  })
+
+  it('describes triad qualities and inversions with root-relative solfege', () => {
+    expect(triadSolfege('major', 0)).toBe('Do–Mi–Sol')
+    expect(triadSolfege('major', 1)).toBe('Mi–Sol–Do')
+    expect(triadSolfege('minor', 0)).toBe('Do–Me–Sol')
+    expect(triadSolfege('diminished', 2)).toBe('Se–Do–Me')
   })
 })

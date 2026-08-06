@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { MAJOR_KEYS, buildTriad, pitchName } from './music'
+import { MAJOR_KEYS, analyzeInterval, buildTriad, pitchName } from './music'
 import {
+  createIntervalExample,
   createChordToneQuestion,
   createIntervalQuestion,
+  createSession,
   createTriadFillQuestion,
   createVoicing,
+  intervalOptionsFor,
 } from './questions'
 import type { IntervalSettings, TriadSettings } from './types'
 
@@ -20,13 +23,25 @@ const triadSettings: TriadSettings = {
 }
 
 describe('question generation', () => {
-  it('creates six unique interval options containing the answer', () => {
+  it('keeps interval options in a fixed, degree-specific order', () => {
     for (let run = 0; run < 50; run += 1) {
       const question = createIntervalQuestion(intervalSettings)
       expect(question.upper.midi).toBeGreaterThan(question.lower.midi)
-      expect(question.options).toHaveLength(6)
-      expect(new Set(question.options.map((option) => option.label)).size).toBe(6)
+      expect(question.options).toEqual(intervalOptionsFor(intervalSettings.degrees, 'advanced'))
       expect(question.options.map((option) => option.label)).toContain(question.answer.label)
+    }
+  })
+
+  it('reduces basic interval options to qualities natural notes can produce', () => {
+    expect(intervalOptionsFor([3], 'basic').map((option) => option.label)).toEqual(['小三度', '大三度'])
+    expect(intervalOptionsFor([4], 'basic').map((option) => option.label)).toEqual(['纯四度', '增四度'])
+  })
+
+  it('builds a playable, correctly spelled example for every interval option', () => {
+    for (const option of intervalOptionsFor(intervalSettings.degrees, 'advanced')) {
+      const [lower, upper] = createIntervalExample(option)
+      expect(upper.midi).toBeGreaterThan(lower.midi)
+      expect(analyzeInterval(lower, upper)).toEqual(option)
     }
   })
 
@@ -58,5 +73,18 @@ describe('question generation', () => {
       const member = createChordToneQuestion(triadSettings)
       expect(member.answer).toBe(pitchName(member.triad.tones[member.targetIndex]))
     }
+  })
+
+  it('balances all three inversions within a ten-question session while shuffling their order', () => {
+    let seed = 246813579
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0
+      return seed / 4294967296
+    }
+    const session = createSession('triad-fill', intervalSettings, triadSettings, 10, random)
+    const inversions = session.map((question) => question.kind === 'triad-fill' ? question.inversion : -1)
+    const counts = [0, 1, 2].map((inversion) => inversions.filter((value) => value === inversion).length)
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
+    expect(inversions).not.toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2, expect.any(Number)])
   })
 })

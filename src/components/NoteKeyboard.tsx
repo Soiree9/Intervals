@@ -5,6 +5,7 @@ interface NoteKeyboardProps {
   disabled?: boolean
   onActiveIndexChange: (index: number) => void
   onChange: (values: string[]) => void
+  onValuePlay?: (value: string, index: number) => void
 }
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -13,7 +14,7 @@ function accidentalOf(value: string): string {
   return value.slice(1)
 }
 
-export function NoteKeyboard({ values, correctValues, activeIndex, disabled = false, onActiveIndexChange, onChange }: NoteKeyboardProps) {
+export function NoteKeyboard({ values, correctValues, activeIndex, disabled = false, onActiveIndexChange, onChange, onValuePlay }: NoteKeyboardProps) {
   const updateActive = (value: string) => {
     const next = [...values]
     next[activeIndex] = value
@@ -34,10 +35,10 @@ export function NoteKeyboard({ values, correctValues, activeIndex, disabled = fa
           <button
             type="button"
             key={index}
-            className={`note-slot ${activeIndex === index ? 'active' : ''} ${correctValues ? (value === correctValues[index] ? 'correct' : 'wrong') : ''}`}
-            onClick={() => onActiveIndexChange(index)}
-            disabled={disabled}
-            aria-label={`第 ${index + 1} 个音${value ? `，当前为 ${value}` : ''}`}
+            className={`note-slot ${activeIndex === index && !disabled ? 'active' : ''} ${correctValues ? (value === correctValues[index] ? 'correct' : 'wrong') : ''} ${disabled && value && onValuePlay ? 'playable' : ''}`}
+            onClick={() => disabled ? value && onValuePlay?.(value, index) : onActiveIndexChange(index)}
+            disabled={disabled && (!value || !onValuePlay)}
+            aria-label={`第 ${index + 1} 个音${value ? `，当前为 ${value}` : ''}${disabled && value && onValuePlay ? '，点击试听' : ''}`}
           >
             {value || '—'}
           </button>

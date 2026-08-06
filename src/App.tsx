@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { NoteKeyboard } from './components/NoteKeyboard'
 import { Staff } from './components/Staff'
-import { INVERSION_TEXT, pitchClassIsEnharmonic, pitchName, triadFormula } from './domain/music'
-import { createSession, questionStorageKey, questionSummary } from './domain/questions'
+import { INVERSION_TEXT, makeNote, parsePitchName, pitchClassIsEnharmonic, pitchName, triadFormula, triadSolfege } from './domain/music'
+import { createIntervalExample, createSession, intervalOptionsFor, questionStorageKey, questionSummary } from './domain/questions'
 import type {
   AppSettings,
   IntervalDegree,
+  IntervalIdentity,
   IntervalQuestion,
   LifetimeStats,
+  NoteSpelling,
   PracticeKind,
   PracticeQuestion,
   TriadQuality,
@@ -34,6 +36,11 @@ interface AnswerFeedback {
   enharmonic?: boolean
 }
 
+interface IntervalPreview {
+  option: IntervalIdentity
+  notes: [NoteSpelling, NoteSpelling]
+}
+
 const DEGREE_NAMES: Record<IntervalDegree, string> = {
   2: '二度', 3: '三度', 4: '四度', 5: '五度', 6: '六度', 7: '七度',
 }
@@ -50,6 +57,10 @@ const QUALITY_NAMES: Record<TriadQuality, string> = {
 
 function toggleValue<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
+}
+
+function visibleNoteName(note: NoteSpelling, showOctaves: boolean): string {
+  return showOctaves ? note.displayName : pitchName(note)
 }
 
 function App() {
@@ -72,6 +83,7 @@ function App() {
   const [starting, setStarting] = useState(false)
   const [notice, setNotice] = useState('')
   const [wrongFilter, setWrongFilter] = useState<'all' | PracticeKind>('all')
+  const [intervalPreview, setIntervalPreview] = useState<IntervalPreview | null>(null)
   const lastAutoplayId = useRef('')
 
   const question = questions[questionIndex]
@@ -91,6 +103,7 @@ function App() {
     if (!question) return
     setFeedback(null)
     setActiveSlot(0)
+    setIntervalPreview(null)
     setNoteValues(question.kind === 'triad-fill' ? ['', '', ''] : question.kind === 'chord-tone' ? [''] : [])
   }, [question])
 
@@ -118,7 +131,10 @@ function App() {
     setNotice('')
     try {
       const source = await initializeAudio()
-      const nextQuestions = suppliedQuestions ?? createSession(nextKind, settings.interval, settings.triad)
+      const sourceQuestions = suppliedQuestions ?? createSession(nextKind, settings.interval, settings.triad)
+      const nextQuestions = sourceQuestions.map((item) => item.kind === 'interval'
+        ? { ...item, options: intervalOptionsFor(Array.from(new Set([...settings.interval.degrees, item.answer.degree])).sort() as IntervalDegree[], settings.interval.difficulty) }
+        : item)
       if (!nextQuestions.length) throw new Error('没有可复习的题目。')
       setAudioSource(source)
       setKind(nextKind)
@@ -153,6 +169,7 @@ function App() {
     const isCorrect = selected === question.answer.label
     setFeedback({ correct: isCorrect, selected })
     recordAnswer(isCorrect)
+    if (isCorrect) void playQuestion(question)
   }
 
   const submitNotes = () => {
@@ -162,6 +179,23 @@ function App() {
     const enharmonic = !isCorrect && answers.some((answer, index) => noteValues[index] && noteValues[index] !== answer && pitchClassIsEnharmonic(noteValues[index], answer))
     setFeedback({ correct: isCorrect, values: [...noteValues], enharmonic })
     recordAnswer(isCorrect)
+    if (isCorrect) void playQuestion(question)
+  }
+
+  const exploreInterval = async (option: IntervalIdentity) => {
+    const notes = createIntervalExample(option)
+    setIntervalPreview({ option, notes })
+    setAudioSource(await playNotes(notes, settings.interval.playback))
+  }
+
+  const playFilledNote = async (value: string, index: number) => {
+    if (question.kind !== 'triad-fill') return
+    const pitch = parsePitchName(value)
+    const reference = question.notes[index]
+    const candidates = [reference.octave - 1, reference.octave, reference.octave + 1]
+      .map((octave) => makeNote(pitch.letter, pitch.accidental, octave))
+      .sort((left, right) => Math.abs(left.midi - reference.midi) - Math.abs(right.midi - reference.midi))
+    setAudioSource(await playNotes([candidates[0]], 'harmonic'))
   }
 
   const nextQuestion = () => {
@@ -191,6 +225,13 @@ function App() {
         </button>
         <div className="topbar-meta">
           {audioSource && <span className="audio-badge">● {audioSource === 'piano' ? '钢琴音源' : '备用合成音'}</span>}
+          <button
+            type="button"
+            className="text-button notation-toggle"
+            aria-pressed={settings.showOctaves}
+            title="切换科学音高标记"
+            onClick={() => setSettings((current) => ({ ...current, showOctaves: !current.showOctaves }))}
+          >音名 {settings.showOctaves ? 'C4' : 'C'}</button>
           <button type="button" className="text-button" onClick={() => setView('wrongs')}>错题 {wrongItems.length}</button>
         </div>
       </header>
@@ -329,15 +370,16 @@ function App() {
               <div className="score-pill">答对 {correctCount}</div>
             </div>
 
-            <article className="question-card">
-              {question.kind === 'interval' && <IntervalExercise question={question} settings={settings} feedback={feedback} onAnswer={answerInterval} onPlay={() => void playQuestion()} onPlaybackChange={(playback) => setSettings((current) => ({ ...current, interval: { ...current.interval, playback } }))} />}
+            <article className={`question-card ${feedback ? feedback.correct ? 'feedback-correct' : 'feedback-wrong' : ''}`}>
+              {question.kind === 'interval' && <IntervalExercise question={question} settings={settings} feedback={feedback} preview={intervalPreview} onAnswer={answerInterval} onExplore={(option) => void exploreInterval(option)} onPlay={() => void playQuestion()} onPlaybackChange={(playback) => setSettings((current) => ({ ...current, interval: { ...current.interval, playback } }))} />}
 
               {question.kind === 'triad-fill' && (
                 <>
                   <QuestionHeading eyebrow="INVERSION SPELLING" title={`${question.triad.label}（${question.triad.symbol}）`} subtitle="听一遍原位或转位，按实际低到高填写三个音名。" />
                   <button type="button" className="play-button" onClick={() => void playQuestion()}>▶ 从低到高重播</button>
                   {feedback && <Staff notes={question.notes} label={`${question.triad.label}${INVERSION_TEXT[question.inversion]}谱面`} />}
-                  <NoteKeyboard values={noteValues} correctValues={feedback ? question.answers : undefined} activeIndex={activeSlot} disabled={Boolean(feedback)} onActiveIndexChange={setActiveSlot} onChange={setNoteValues} />
+                  <NoteKeyboard values={noteValues} correctValues={feedback ? question.answers : undefined} activeIndex={activeSlot} disabled={Boolean(feedback)} onActiveIndexChange={setActiveSlot} onChange={setNoteValues} onValuePlay={feedback ? (value, index) => void playFilledNote(value, index) : undefined} />
+                  {feedback && <p className="note-play-hint">点击上方已填写的音名，可逐个试听。</p>}
                   {!feedback && <button type="button" className="submit-button" disabled={noteValues.some((value) => !value)} onClick={submitNotes}>提交三个音名</button>}
                 </>
               )}
@@ -419,21 +461,25 @@ function IntervalExercise({
   question,
   settings,
   feedback,
+  preview,
   onAnswer,
+  onExplore,
   onPlay,
   onPlaybackChange,
 }: {
   question: IntervalQuestion
   settings: AppSettings
   feedback: AnswerFeedback | null
+  preview: IntervalPreview | null
   onAnswer: (answer: string) => void
+  onExplore: (option: IntervalIdentity) => void
   onPlay: () => void
   onPlaybackChange: (mode: 'melodic' | 'harmonic') => void
 }) {
   return (
     <>
-      <QuestionHeading eyebrow="INTERVAL READING" title={`${question.lower.displayName} — ${question.upper.displayName}`} subtitle="观察音名和谱面，选择它们构成的完整音程。" />
-      <Staff notes={[question.lower, question.upper]} label={`${question.lower.displayName} 与 ${question.upper.displayName} 的高音谱表`} />
+      <QuestionHeading eyebrow="INTERVAL READING" title={`${visibleNoteName(question.lower, settings.showOctaves)} — ${visibleNoteName(question.upper, settings.showOctaves)}`} subtitle="观察音名和谱面，选择它们构成的完整音程。" />
+      <Staff notes={[question.lower, question.upper]} label={`${visibleNoteName(question.lower, settings.showOctaves)} 与 ${visibleNoteName(question.upper, settings.showOctaves)} 的高音谱表`} />
       <div className="play-controls">
         <button type="button" className="play-button" onClick={onPlay}>▶ 重新播放</button>
         <div className="segmented compact">
@@ -444,9 +490,16 @@ function IntervalExercise({
       <div className="answer-grid">
         {question.options.map((option) => {
           const state = !feedback ? '' : option.label === question.answer.label ? 'correct' : option.label === feedback.selected ? 'wrong' : 'muted'
-          return <button type="button" key={option.label} className={`answer-option ${state}`} disabled={Boolean(feedback)} onClick={() => onAnswer(option.label)}>{option.label}</button>
+          return <button type="button" key={option.label} className={`answer-option ${state} ${preview?.option.label === option.label ? 'exploring' : ''}`} onClick={() => feedback ? onExplore(option) : onAnswer(option.label)}>{option.label}</button>
         })}
       </div>
+      {feedback && (
+        <div className="interval-preview" aria-live="polite">
+          {preview
+            ? <><strong>{preview.option.label}</strong><span>{visibleNoteName(preview.notes[0], settings.showOctaves)}–{visibleNoteName(preview.notes[1], settings.showOctaves)}</span><small>正在按当前播放模式试听</small></>
+            : <span>点击任一音程选项，可查看一组音名并试听。</span>}
+        </div>
+      )}
     </>
   )
 }
@@ -456,9 +509,10 @@ function FeedbackPanel({ question, feedback, onReplay, onNext, isLast }: { quest
   if (question.kind === 'interval') {
     explanation = `${question.lower.letter} 到 ${question.upper.letter} 数 ${question.answer.degree} 度；两个音实际相隔 ${question.answer.semitones} 个半音，所以是${question.answer.label}。`
   } else if (question.kind === 'triad-fill') {
-    explanation = `根音、三音、五音是 ${question.triad.tones.map(pitchName).join('–')}；本题为${INVERSION_TEXT[question.inversion]}，低到高是 ${question.answers.join('–')}。`
+    explanation = `根音、三音、五音是 ${question.triad.tones.map(pitchName).join('–')}（以根音为 Do：${triadSolfege(question.triad.quality)}）；本题为${INVERSION_TEXT[question.inversion]}，低到高是 ${question.answers.join('–')}（${triadSolfege(question.triad.quality, question.inversion)}）。`
   } else {
-    explanation = `${triadFormula(question.triad.quality)}；${question.target === 'third' ? '三音' : '五音'}是 ${question.answer}。`
+    const solfege = triadSolfege(question.triad.quality).split('–')
+    explanation = `${triadFormula(question.triad.quality)}；以根音为 Do：${solfege.join('–')}；${question.target === 'third' ? '三音' : '五音'}是 ${question.answer}（${solfege[question.targetIndex]}）。`
   }
   return (
     <div className={`feedback-panel ${feedback.correct ? 'correct' : 'wrong'}`} role="status">

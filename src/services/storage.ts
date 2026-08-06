@@ -6,6 +6,7 @@ const WRONG_KEY = 'interval-trainer:wrong:v1'
 const STATS_KEY = 'interval-trainer:stats:v1'
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  showOctaves: true,
   interval: {
     degrees: [2, 3, 4, 5, 6, 7],
     difficulty: 'basic',
@@ -32,6 +33,7 @@ function loadJson<T>(key: string, fallback: T): T {
 export function loadSettings(): AppSettings {
   const saved = loadJson<Partial<AppSettings>>(SETTINGS_KEY, {})
   return {
+    showOctaves: saved.showOctaves ?? DEFAULT_SETTINGS.showOctaves,
     interval: { ...DEFAULT_SETTINGS.interval, ...saved.interval },
     triad: { ...DEFAULT_SETTINGS.triad, ...saved.triad },
   }

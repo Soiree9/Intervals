@@ -209,6 +209,19 @@ export function triadFormula(quality: TriadQuality): string {
   return '减三和弦＝小三度＋减五度'
 }
 
+export function triadSolfege(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): string {
+  const rootPosition = quality === 'major'
+    ? ['Do', 'Mi', 'Sol']
+    : quality === 'minor'
+      ? ['Do', 'Me', 'Sol']
+      : ['Do', 'Me', 'Se']
+  return [
+    rootPosition[inversion],
+    rootPosition[(inversion + 1) % 3],
+    rootPosition[(inversion + 2) % 3],
+  ].join('–')
+}
+
 export function pitchClassIsEnharmonic(left: string, right: string): boolean {
   return pitchClass(parsePitchName(left)) === pitchClass(parsePitchName(right))
 }
