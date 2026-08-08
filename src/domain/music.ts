@@ -7,6 +7,7 @@ import type {
   MajorKey,
   NoteSpelling,
   PitchSpelling,
+  ScaleDegree,
   TriadIdentity,
   TriadQuality,
 } from './types'
@@ -23,9 +24,13 @@ const NATURAL_PITCH_CLASS: Record<Letter, number> = {
 }
 
 const ACCIDENTAL_TEXT: Record<Accidental, string> = {
+  [-3]: '♭♭♭',
+  [-2]: '♭♭',
   [-1]: '♭',
   0: '',
   1: '♯',
+  2: '♯♯',
+  3: '♯♯♯',
 }
 
 const QUALITY_TEXT: Record<IntervalQuality, string> = {
@@ -63,6 +68,10 @@ export function pitchName(pitch: PitchSpelling): string {
   return `${pitch.letter}${ACCIDENTAL_TEXT[pitch.accidental]}`
 }
 
+export function accidentalText(accidental: Accidental): string {
+  return ACCIDENTAL_TEXT[accidental]
+}
+
 export function makeNote(letter: Letter, accidental: Accidental, octave: number): NoteSpelling {
   const midi = (octave + 1) * 12 + NATURAL_PITCH_CLASS[letter] + accidental
   return {
@@ -81,7 +90,10 @@ export function pitchClass(pitch: PitchSpelling): number {
 export function parsePitchName(name: string): PitchSpelling {
   const letter = name[0] as Letter
   const suffix = name.slice(1)
-  const accidental: Accidental = suffix === '#' || suffix === '♯' ? 1 : suffix === 'b' || suffix === '♭' ? -1 : 0
+  const sharpCount = (suffix.match(/[#♯]/g) ?? []).length
+  const flatCount = (suffix.match(/[b♭]/g) ?? []).length
+  const accidental = (sharpCount - flatCount) as Accidental
+  if (accidental < -3 || accidental > 3) throw new Error(`Unsupported accidental: ${name}`)
   return { letter, accidental }
 }
 
@@ -173,7 +185,7 @@ export function keysForCircleLevel(level: 1 | 2 | 3): MajorKey[] {
 
 const ROMAN = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°']
 
-export function buildTriad(key: MajorKey, scaleDegree: number): TriadIdentity {
+export function buildTriad(key: MajorKey, scaleDegree: ScaleDegree): TriadIdentity {
   if (scaleDegree < 1 || scaleDegree > 7) throw new Error('Scale degree must be 1–7.')
   const rootIndex = scaleDegree - 1
   const tones = [
@@ -224,4 +236,14 @@ export function triadSolfege(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): s
 
 export function pitchClassIsEnharmonic(left: string, right: string): boolean {
   return pitchClass(parsePitchName(left)) === pitchClass(parsePitchName(right))
+}
+
+export function majorKeyByName(name: string): MajorKey {
+  const key = MAJOR_KEYS.find((item) => item.name === name)
+  if (!key) throw new Error(`Unknown major key: ${name}`)
+  return key
+}
+
+export function scaleDegreeText(degree: ScaleDegree): string {
+  return ['一', '二', '三', '四', '五', '六', '七'][degree - 1]
 }

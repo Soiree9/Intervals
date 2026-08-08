@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Accidental, Formatter, Renderer, Stave, StaveNote, Voice } from 'vexflow'
 import type { NoteSpelling } from '../domain/types'
+import { accidentalText } from '../domain/music'
 
 interface StaffProps {
   notes: NoteSpelling[]
@@ -35,7 +36,7 @@ export function Staff({ notes, targetIndex, label }: StaffProps) {
       duration: 'w',
     })
     notes.forEach((note, index) => {
-      if (note.accidental !== 0) staveNote.addModifier(new Accidental(note.accidental === 1 ? '#' : 'b'), index)
+      if (note.accidental !== 0) staveNote.addModifier(new Accidental(accidentalText(note.accidental).replaceAll('♯', '#').replaceAll('♭', 'b')), index)
     })
     if (targetIndex !== undefined) {
       staveNote.setKeyStyle(targetIndex, { fillStyle: '#db5b3f', strokeStyle: '#db5b3f' })

@@ -67,11 +67,15 @@ function trigger(value: number | number[], duration: number, time: number): void
   else synth?.triggerAttackRelease(value, duration, time)
 }
 
+function stopCurrentSound(): void {
+  sampler?.releaseAll()
+  synth?.releaseAll()
+}
+
 export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmonic' | 'arpeggio'): Promise<AudioSource> {
   const source = await initializeAudio()
   if (!tone) return source
-  sampler?.releaseAll()
-  synth?.releaseAll()
+  stopCurrentSound()
   const now = tone.now() + 0.05
   const frequencies = notes.map(frequency)
   if (mode === 'harmonic') {
@@ -80,5 +84,39 @@ export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmon
     const gap = mode === 'arpeggio' ? 0.48 : 0.68
     frequencies.forEach((value, index) => trigger(value, 0.58, now + index * gap))
   }
+  return source
+}
+
+export async function playChordThenTone(chord: NoteSpelling[], target: NoteSpelling): Promise<AudioSource> {
+  const source = await initializeAudio()
+  if (!tone) return source
+  stopCurrentSound()
+  const now = tone.now() + 0.05
+  trigger(chord.map(frequency), 1.2, now)
+  trigger(frequency(target), 0.8, now + 1.55)
+  return source
+}
+
+export async function playCadenceThenTone(cadence: [NoteSpelling[], NoteSpelling[]], target: NoteSpelling): Promise<AudioSource> {
+  const source = await initializeAudio()
+  if (!tone) return source
+  stopCurrentSound()
+  const now = tone.now() + 0.05
+  trigger(cadence[0].map(frequency), 1.05, now)
+  trigger(cadence[1].map(frequency), 1.25, now + 1.3)
+  trigger(frequency(target), 0.8, now + 2.9)
+  return source
+}
+
+export async function playProgression(voicings: NoteSpelling[][], onStep?: (index: number) => void): Promise<AudioSource> {
+  const source = await initializeAudio()
+  if (!tone) return source
+  stopCurrentSound()
+  const now = tone.now() + 0.05
+  const barDuration = (60 / 88) * 4
+  voicings.forEach((voicing, index) => {
+    trigger(voicing.map(frequency), barDuration - 0.18, now + index * barDuration)
+    window.setTimeout(() => onStep?.(index), index * barDuration * 1000)
+  })
   return source
 }

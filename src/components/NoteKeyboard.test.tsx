@@ -16,32 +16,28 @@ describe('NoteKeyboard', () => {
     fireEvent.click(screen.getByRole('button', { name: /第 2 个音/ }))
     fireEvent.click(screen.getByRole('button', { name: 'F' }))
     fireEvent.click(screen.getByRole('button', { name: '♯' }))
-    expect(screen.getByRole('button', { name: /第 1 个音，当前为 C/ })).toHaveTextContent('C')
-    expect(screen.getByRole('button', { name: /第 2 个音，当前为 F♯/ })).toHaveTextContent('F♯')
+    expect(screen.getByRole('button', { name: '第 1 个音：C' })).toHaveTextContent('C')
+    expect(screen.getByRole('button', { name: '第 2 个音：F♯' })).toHaveTextContent('F♯')
   })
 
   it('clears only the active slot', () => {
     render(<KeyboardHarness slots={1} />)
     fireEvent.click(screen.getByRole('button', { name: 'B' }))
     fireEvent.click(screen.getByRole('button', { name: '清除' }))
-    expect(screen.getByRole('button', { name: '第 1 个音' })).toHaveTextContent('—')
+    expect(screen.getByRole('button', { name: '第 1 个音：未填写' })).toHaveTextContent('—')
   })
 
   it('lets a submitted note slot play its filled value while keeping the keyboard locked', () => {
     const onValuePlay = vi.fn()
-    render(
-      <NoteKeyboard
-        values={['E', 'G', 'C']}
-        correctValues={['E', 'G', 'C']}
-        activeIndex={0}
-        disabled
-        onActiveIndexChange={() => undefined}
-        onChange={() => undefined}
-        onValuePlay={onValuePlay}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /第 2 个音，当前为 G/ }))
+    render(<NoteKeyboard values={['E', 'G', 'C']} correctValues={['E', 'G', 'C']} activeIndex={0} disabled onActiveIndexChange={() => undefined} onChange={() => undefined} onValuePlay={onValuePlay} />)
+    fireEvent.click(screen.getByRole('button', { name: /第 2 个音：G/ }))
     expect(onValuePlay).toHaveBeenCalledWith('G', 1)
     expect(screen.getByRole('button', { name: 'C' })).toBeDisabled()
+  })
+
+  it('can hide slots when another component renders the answer cells', () => {
+    render(<NoteKeyboard values={['']} activeIndex={0} showSlots={false} onActiveIndexChange={() => undefined} onChange={() => undefined} />)
+    expect(screen.queryByLabelText('音名填空')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'A' })).toBeInTheDocument()
   })
 })

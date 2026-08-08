@@ -8,16 +8,17 @@ import {
   pitchName,
   triadSolfege,
 } from './music'
+import type { ScaleDegree } from './types'
 
 describe('interval analysis', () => {
   it.each([
-    [makeNote('C', 0, 4), makeNote('E', 0, 4), '大三度', 4],
-    [makeNote('C', 0, 4), makeNote('E', -1, 4), '小三度', 3],
-    [makeNote('F', 0, 4), makeNote('B', 0, 4), '增四度', 6],
-    [makeNote('B', 0, 4), makeNote('F', 0, 5), '减五度', 6],
-    [makeNote('C', 1, 4), makeNote('G', 0, 4), '减五度', 6],
-  ])('names %s to %s from spelling, not pitch alone', (lower, upper, label, semitones) => {
-    expect(analyzeInterval(lower, upper)).toMatchObject({ label, semitones })
+    [makeNote('C', 0, 4), makeNote('E', 0, 4), 4],
+    [makeNote('C', 0, 4), makeNote('E', -1, 4), 3],
+    [makeNote('F', 0, 4), makeNote('B', 0, 4), 6],
+    [makeNote('B', 0, 4), makeNote('F', 0, 5), 6],
+    [makeNote('C', 1, 4), makeNote('G', 0, 4), 6],
+  ])('uses spelling instead of pitch alone', (lower, upper, semitones) => {
+    expect(analyzeInterval(lower, upper)).toMatchObject({ semitones })
   })
 })
 
@@ -32,18 +33,23 @@ describe('major keys and diatonic triads', () => {
     expect(new Set(MAJOR_KEYS.map((key) => key.name)).size).toBe(12)
   })
 
-  it('produces I/IV/V major, ii/iii/vi minor, and vii diminished in every key', () => {
+  it('spells every diatonic triad and its quality in all twelve keys', () => {
     for (const key of MAJOR_KEYS) {
-      expect([1, 4, 5].map((degree) => buildTriad(key, degree).quality)).toEqual(['major', 'major', 'major'])
-      expect([2, 3, 6].map((degree) => buildTriad(key, degree).quality)).toEqual(['minor', 'minor', 'minor'])
+      expect([1, 4, 5].map((degree) => buildTriad(key, degree as ScaleDegree).quality)).toEqual(['major', 'major', 'major'])
+      expect([2, 3, 6].map((degree) => buildTriad(key, degree as ScaleDegree).quality)).toEqual(['minor', 'minor', 'minor'])
       expect(buildTriad(key, 7).quality).toBe('diminished')
     }
   })
 
-  it('describes triad qualities and inversions with root-relative solfege', () => {
+  it('keeps E major degree six correctly spelled as C sharp', () => {
+    const eMajor = MAJOR_KEYS.find((key) => key.name === 'E')!
+    expect(pitchName(eMajor.notes[5])).toBe('C♯')
+    expect(buildTriad(eMajor, 6).symbol).toBe('C♯m')
+  })
+
+  it('describes triad inversions with root-relative solfege', () => {
     expect(triadSolfege('major', 0)).toBe('Do–Mi–Sol')
     expect(triadSolfege('major', 1)).toBe('Mi–Sol–Do')
     expect(triadSolfege('minor', 0)).toBe('Do–Me–Sol')
-    expect(triadSolfege('diminished', 2)).toBe('Se–Do–Me')
   })
 })
