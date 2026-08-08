@@ -9,6 +9,11 @@ let sampler: Sampler | null = null
 let synth: PolySynth | null = null
 let sampleReady = false
 let initialization: Promise<AudioSource> | null = null
+let playbackGeneration = 0
+const playbackTimers = new Set<number>()
+
+export const PROGRESSION_BPM = 88 * 1.4
+export const PROGRESSION_BAR_SECONDS = (60 / PROGRESSION_BPM) * 4
 
 const sampleUrls = {
   C4: 'C4.mp3',
@@ -67,56 +72,78 @@ function trigger(value: number | number[], duration: number, time: number): void
   else synth?.triggerAttackRelease(value, duration, time)
 }
 
-function stopCurrentSound(): void {
+export function stopAudio(): void {
+  playbackGeneration += 1
+  playbackTimers.forEach((timer) => window.clearTimeout(timer))
+  playbackTimers.clear()
   sampler?.releaseAll()
   synth?.releaseAll()
 }
 
+function beginPlayback(): number {
+  stopAudio()
+  return playbackGeneration
+}
+
+function triggerNow(value: number | number[], duration: number): void {
+  if (tone) trigger(value, duration, tone.now() + 0.02)
+}
+
+function schedulePlayback(generation: number, delay: number, action: () => void): void {
+  const timer = window.setTimeout(() => {
+    playbackTimers.delete(timer)
+    if (generation === playbackGeneration) action()
+  }, delay)
+  playbackTimers.add(timer)
+}
+
 export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmonic' | 'arpeggio'): Promise<AudioSource> {
+  const generation = beginPlayback()
   const source = await initializeAudio()
-  if (!tone) return source
-  stopCurrentSound()
-  const now = tone.now() + 0.05
+  if (!tone || generation !== playbackGeneration) return source
   const frequencies = notes.map(frequency)
   if (mode === 'harmonic') {
-    trigger(frequencies, 1.2, now)
+    triggerNow(frequencies, 1.2)
   } else {
     const gap = mode === 'arpeggio' ? 0.48 : 0.68
-    frequencies.forEach((value, index) => trigger(value, 0.58, now + index * gap))
+    frequencies.forEach((value, index) => {
+      if (index === 0) triggerNow(value, 0.58)
+      else schedulePlayback(generation, index * gap * 1000, () => triggerNow(value, 0.58))
+    })
   }
   return source
 }
 
 export async function playChordThenTone(chord: NoteSpelling[], target: NoteSpelling): Promise<AudioSource> {
+  const generation = beginPlayback()
   const source = await initializeAudio()
-  if (!tone) return source
-  stopCurrentSound()
-  const now = tone.now() + 0.05
-  trigger(chord.map(frequency), 1.2, now)
-  trigger(frequency(target), 0.8, now + 1.55)
+  if (!tone || generation !== playbackGeneration) return source
+  triggerNow(chord.map(frequency), 1.2)
+  schedulePlayback(generation, 1550, () => triggerNow(frequency(target), 0.8))
   return source
 }
 
 export async function playCadenceThenTone(cadence: [NoteSpelling[], NoteSpelling[]], target: NoteSpelling): Promise<AudioSource> {
+  const generation = beginPlayback()
   const source = await initializeAudio()
-  if (!tone) return source
-  stopCurrentSound()
-  const now = tone.now() + 0.05
-  trigger(cadence[0].map(frequency), 1.05, now)
-  trigger(cadence[1].map(frequency), 1.25, now + 1.3)
-  trigger(frequency(target), 0.8, now + 2.9)
+  if (!tone || generation !== playbackGeneration) return source
+  triggerNow(cadence[0].map(frequency), 1.05)
+  schedulePlayback(generation, 1300, () => triggerNow(cadence[1].map(frequency), 1.25))
+  schedulePlayback(generation, 2900, () => triggerNow(frequency(target), 0.8))
   return source
 }
 
 export async function playProgression(voicings: NoteSpelling[][], onStep?: (index: number) => void): Promise<AudioSource> {
+  const generation = beginPlayback()
   const source = await initializeAudio()
-  if (!tone) return source
-  stopCurrentSound()
-  const now = tone.now() + 0.05
-  const barDuration = (60 / 88) * 4
+  if (!tone || generation !== playbackGeneration) return source
   voicings.forEach((voicing, index) => {
-    trigger(voicing.map(frequency), barDuration - 0.18, now + index * barDuration)
-    window.setTimeout(() => onStep?.(index), index * barDuration * 1000)
+    const playBar = () => {
+      onStep?.(index)
+      triggerNow(voicing.map(frequency), PROGRESSION_BAR_SECONDS - 0.18)
+    }
+    if (index === 0) playBar()
+    else schedulePlayback(generation, index * PROGRESSION_BAR_SECONDS * 1000, playBar)
   })
   return source
 }

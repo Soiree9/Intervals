@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { MAJOR_KEYS, analyzeInterval, buildTriad, makeNote, pitchName } from './music'
+import { MAJOR_KEYS, analyzeInterval, buildTriad, makeNote, mod, pitchName } from './music'
 import {
+  AUDIO_MAX_MIDI,
+  AUDIO_MIN_MIDI,
+  INTERVAL_LOWER_MAX_MIDI,
+  INTERVAL_LOWER_MIN_MIDI,
   PROGRESSION_TEMPLATES,
   createChordToneQuestion,
   createIntervalAudition,
@@ -11,6 +15,7 @@ import {
   createVoicing,
   intervalOptionsFor,
   hasParallelPerfects,
+  questionIdentity,
   sessionSignature,
 } from './questions'
 import type { IntervalSettings, KeyPracticeSettings, ScaleDegree, TriadSettings } from './types'
@@ -52,7 +57,7 @@ describe('question generation', () => {
   })
 
   it('uses the supplied lower note for post-answer interval auditions', () => {
-    const lower = makeNote('F', 1, 4)
+    const lower = makeNote('F', 0, 4)
     for (const option of intervalOptionsFor(intervalSettings.degrees, 'advanced')) {
       const [auditionLower, upper] = createIntervalAudition(lower, option)
       expect(auditionLower).toEqual(lower)
@@ -68,11 +73,28 @@ describe('question generation', () => {
     }
   })
 
+  it('keeps interval questions near C4 and never above F5', () => {
+    for (let run = 0; run < 100; run += 1) {
+      const question = createIntervalQuestion(intervalSettings)
+      expect(question.lower.midi).toBeGreaterThanOrEqual(INTERVAL_LOWER_MIN_MIDI)
+      expect(question.lower.midi).toBeLessThanOrEqual(INTERVAL_LOWER_MAX_MIDI)
+      expect(question.upper.midi).toBeLessThanOrEqual(AUDIO_MAX_MIDI)
+    }
+  })
+
   it('voices all inversions in ascending order', () => {
     const triad = buildTriad(MAJOR_KEYS[0], 1)
     expect(createVoicing(triad.tones, 0).map(pitchName)).toEqual(['C', 'E', 'G'])
     expect(createVoicing(triad.tones, 1).map(pitchName)).toEqual(['E', 'G', 'C'])
     expect(createVoicing(triad.tones, 2).map(pitchName)).toEqual(['G', 'C', 'E'])
+    for (const key of MAJOR_KEYS) {
+      for (const degree of [1, 2, 3, 4, 5, 6, 7] as ScaleDegree[]) {
+        for (const inversion of [0, 1, 2] as const) {
+          const notes = createVoicing(buildTriad(key, degree).tones, inversion)
+          expect(notes.every((note) => note.midi >= AUDIO_MIN_MIDI && note.midi <= AUDIO_MAX_MIDI)).toBe(true)
+        }
+      }
+    }
   })
 
   it('creates triad answers using exact spellings', () => {
@@ -100,6 +122,17 @@ describe('question generation', () => {
     expect(sessionSignature(second)).not.toBe(sessionSignature(first))
   })
 
+  it('never places identical questions next to each other, including across sessions', () => {
+    for (const practiceKind of ['interval', 'triad-fill', 'chord-tone', 'scale-degree', 'progression'] as const) {
+      const first = createSession(practiceKind, intervalSettings, triadSettings, keySettings, 10, seeded())
+      for (let index = 1; index < first.length; index += 1) expect(questionIdentity(first[index])).not.toBe(questionIdentity(first[index - 1]))
+      const previous = questionIdentity(first.at(-1)!)
+      const second = createSession(practiceKind, intervalSettings, triadSettings, keySettings, 10, seeded(), practiceKind === 'scale-degree' || practiceKind === 'progression' ? sessionSignature(first) : '', previous)
+      expect(questionIdentity(second[0])).not.toBe(previous)
+      for (let index = 1; index < second.length; index += 1) expect(questionIdentity(second[index])).not.toBe(questionIdentity(second[index - 1]))
+    }
+  })
+
   it('covers all nine progression templates with exactly one repeat and mixed directions', () => {
     const session = createSession('progression', intervalSettings, triadSettings, keySettings, 10, seeded())
     const questions = session.filter((question) => question.kind === 'progression')
@@ -119,10 +152,18 @@ describe('question generation', () => {
           voicings.forEach((voicing) => {
             expect(voicing).toHaveLength(voiceCount)
             expect(voicing.every((note, index) => index === 0 || note.midi > voicing[index - 1].midi)).toBe(true)
-            expect(voicing[0].midi).toBeGreaterThanOrEqual(36)
-            expect(voicing.at(-1)!.midi).toBeLessThanOrEqual(84)
+            expect(voicing[0].midi).toBeGreaterThanOrEqual(AUDIO_MIN_MIDI)
+            expect(voicing.at(-1)!.midi).toBeLessThanOrEqual(AUDIO_MAX_MIDI)
           })
-          for (let index = 1; index < voicings.length; index += 1) expect(hasParallelPerfects(voicings[index - 1], voicings[index])).toBe(false)
+          for (let index = 1; index < voicings.length; index += 1) {
+            expect(hasParallelPerfects(voicings[index - 1], voicings[index])).toBe(false)
+            if (template.degrees[index - 1] === 5 && template.degrees[index] === 1) {
+              const leadingPitchClass = mod(makeNote(key.notes[6].letter, key.notes[6].accidental, 4).midi, 12)
+              voicings[index - 1].forEach((note, voiceIndex) => {
+                if (mod(note.midi, 12) === leadingPitchClass) expect(voicings[index][voiceIndex].midi - note.midi).toBe(1)
+              })
+            }
+          }
         }
       }
     }

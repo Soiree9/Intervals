@@ -7,6 +7,7 @@ const WRONG_KEY = 'interval-trainer:wrong:v2'
 const LEGACY_WRONG_KEY = 'interval-trainer:wrong:v1'
 const STATS_KEY = 'interval-trainer:stats:v1'
 const ORDER_KEY = 'interval-trainer:order:v1'
+const LAST_QUESTION_KEY = 'interval-trainer:last-question:v1'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   showOctaves: true,
@@ -106,6 +107,15 @@ export function loadLastOrder(key: string): string {
 export function saveLastOrder(key: string, signature: string): void {
   const orders = loadJson<Record<string, string>>(ORDER_KEY, {})
   localStorage.setItem(ORDER_KEY, JSON.stringify({ ...orders, [key]: signature }))
+}
+
+export function loadLastQuestion(key: string): string {
+  return loadJson<Record<string, string>>(LAST_QUESTION_KEY, {})[key] ?? ''
+}
+
+export function saveLastQuestion(key: string, identity: string): void {
+  const questions = loadJson<Record<string, string>>(LAST_QUESTION_KEY, {})
+  localStorage.setItem(LAST_QUESTION_KEY, JSON.stringify({ ...questions, [key]: identity }))
 }
 
 export function loadStats(): LifetimeStats {

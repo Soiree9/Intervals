@@ -35,6 +35,11 @@ import type {
 
 export type RandomSource = () => number
 
+export const AUDIO_MIN_MIDI = 55 // G3
+export const AUDIO_MAX_MIDI = 77 // F5
+export const INTERVAL_LOWER_MIN_MIDI = 59 // B3
+export const INTERVAL_LOWER_MAX_MIDI = 65 // F4
+
 export interface ProgressionTemplate {
   id: string
   degrees: [ScaleDegree, ScaleDegree, ScaleDegree, ScaleDegree]
@@ -98,10 +103,12 @@ export function shuffle<T>(values: T[], random: RandomSource = secureRandom): T[
 
 function writtenNotes(accidentals: Accidental[]): NoteSpelling[] {
   const notes: NoteSpelling[] = []
-  for (let octave = 4; octave <= 6; octave += 1) {
+  for (let octave = 3; octave <= 5; octave += 1) {
     for (const letter of LETTERS) {
-      if (octave === 6 && letter !== 'C') break
-      for (const accidental of accidentals) notes.push(makeNote(letter, accidental, octave))
+      for (const accidental of accidentals) {
+        const note = makeNote(letter, accidental, octave)
+        if (note.midi >= INTERVAL_LOWER_MIN_MIDI && note.midi <= AUDIO_MAX_MIDI) notes.push(note)
+      }
     }
   }
   return notes
@@ -111,6 +118,7 @@ function intervalCandidates(settings: IntervalSettings): Array<{ lower: NoteSpel
   const notes = writtenNotes(settings.difficulty === 'basic' ? [0] : [-1, 0, 1])
   const candidates: Array<{ lower: NoteSpelling; upper: NoteSpelling; answer: IntervalIdentity }> = []
   for (const lower of notes) {
+    if (lower.midi > INTERVAL_LOWER_MAX_MIDI) continue
     for (const upper of notes) {
       if (upper.midi <= lower.midi) continue
       try {
@@ -136,6 +144,7 @@ export function createIntervalAudition(lower: NoteSpelling, identity: IntervalId
   const upperIndex = (lowerIndex + identity.degree - 1) % 7
   const upperOctave = lower.octave + (upperIndex <= lowerIndex ? 1 : 0)
   const targetMidi = lower.midi + identity.semitones
+  if (targetMidi > AUDIO_MAX_MIDI) throw new Error(`Fixed-low audition for ${identity.label} exceeds F5.`)
   const naturalMidi = makeNote(LETTERS[upperIndex], 0, upperOctave).midi
   const accidental = (targetMidi - naturalMidi) as Accidental
   if (accidental < -3 || accidental > 3) throw new Error(`Fixed-low audition for ${identity.label} requires an unsupported accidental.`)
@@ -146,10 +155,15 @@ export function createIntervalExample(identity: IntervalIdentity): [NoteSpelling
   return createIntervalAudition(makeNote('C', 0, 4), identity)
 }
 
-export function createIntervalQuestion(settings: IntervalSettings, random: RandomSource = secureRandom): IntervalQuestion {
+function intervalQuestionIdentity(lower: NoteSpelling, upper: NoteSpelling): string {
+  return `interval:${lower.displayName}:${upper.displayName}`
+}
+
+export function createIntervalQuestion(settings: IntervalSettings, random: RandomSource = secureRandom, excludedIdentity = ''): IntervalQuestion {
   const candidates = intervalCandidates(settings)
   if (!candidates.length) throw new Error('No interval candidates match the selected settings.')
-  const candidate = pickOne(candidates, random)
+  const alternatives = candidates.filter((candidate) => intervalQuestionIdentity(candidate.lower, candidate.upper) !== excludedIdentity)
+  const candidate = pickOne(alternatives.length ? alternatives : candidates, random)
   return {
     kind: 'interval',
     id: randomId('interval'),
@@ -160,17 +174,26 @@ export function createIntervalQuestion(settings: IntervalSettings, random: Rando
 
 export function createVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpelling], inversion: Inversion): [NoteSpelling, NoteSpelling, NoteSpelling] {
   const order = [tones[inversion], tones[(inversion + 1) % 3], tones[(inversion + 2) % 3]]
-  const voiced: NoteSpelling[] = []
-  for (const pitch of order) {
-    let octave = 4
-    let note = makeNote(pitch.letter, pitch.accidental, octave)
-    while (voiced.length && note.midi <= voiced[voiced.length - 1].midi) {
-      octave += 1
-      note = makeNote(pitch.letter, pitch.accidental, octave)
+  const candidates: NoteSpelling[][] = []
+  for (let startingOctave = 3; startingOctave <= 5; startingOctave += 1) {
+    const voiced: NoteSpelling[] = []
+    for (const pitch of order) {
+      let octave = startingOctave
+      let note = makeNote(pitch.letter, pitch.accidental, octave)
+      while (voiced.length && note.midi <= voiced[voiced.length - 1].midi) {
+        octave += 1
+        note = makeNote(pitch.letter, pitch.accidental, octave)
+      }
+      voiced.push(note)
     }
-    voiced.push(note)
+    if (voiced.every((note) => note.midi >= AUDIO_MIN_MIDI && note.midi <= AUDIO_MAX_MIDI)) candidates.push(voiced)
   }
-  if (voiced.some((note) => note.midi < 59 || note.midi > 84)) throw new Error('Triad voicing left the supported staff range.')
+  if (!candidates.length) throw new Error('Triad voicing left the supported staff range.')
+  const voiced = candidates.reduce((best, candidate) => {
+    const score = Math.abs(candidate[0].midi - 60) * 3 + candidate.reduce((total, note) => total + Math.abs(note.midi - 64), 0)
+    const bestScore = Math.abs(best[0].midi - 60) * 3 + best.reduce((total, note) => total + Math.abs(note.midi - 64), 0)
+    return score < bestScore ? candidate : best
+  })
   return voiced as [NoteSpelling, NoteSpelling, NoteSpelling]
 }
 
@@ -185,13 +208,10 @@ function triadsForSpellingLevel(settings: TriadSettings): TriadIdentity[] {
   return [...unique.values()]
 }
 
-function chooseTriad(settings: TriadSettings, random: RandomSource): TriadIdentity {
-  return pickOne(triadsForSpellingLevel(settings), random)
-}
-
-export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = secureRandom): TriadFillQuestion {
-  const triad = chooseTriad(settings, random)
-  const inversion = randomIndex(3, random) as Inversion
+export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = secureRandom, excludedIdentity = ''): TriadFillQuestion {
+  const candidates = triadsForSpellingLevel(settings).flatMap((triad) => ([0, 1, 2] as Inversion[]).map((inversion) => ({ triad, inversion })))
+  const alternatives = candidates.filter(({ triad, inversion }) => `triad-fill:${triad.symbol}:${inversion}` !== excludedIdentity)
+  const { triad, inversion } = pickOne(alternatives.length ? alternatives : candidates, random)
   const notes = createVoicing(triad.tones, inversion)
   return {
     kind: 'triad-fill',
@@ -203,9 +223,10 @@ export function createTriadFillQuestion(settings: TriadSettings, random: RandomS
   }
 }
 
-export function createChordToneQuestion(settings: TriadSettings, random: RandomSource = secureRandom): ChordToneQuestion {
-  const triad = chooseTriad(settings, random)
-  const targetIndex = (1 + randomIndex(2, random)) as 1 | 2
+export function createChordToneQuestion(settings: TriadSettings, random: RandomSource = secureRandom, excludedIdentity = ''): ChordToneQuestion {
+  const candidates = triadsForSpellingLevel(settings).flatMap((triad) => ([1, 2] as const).map((targetIndex) => ({ triad, targetIndex })))
+  const alternatives = candidates.filter(({ triad, targetIndex }) => `chord-tone:${triad.symbol}:${targetIndex === 1 ? 'third' : 'fifth'}` !== excludedIdentity)
+  const { triad, targetIndex } = pickOne(alternatives.length ? alternatives : candidates, random)
   const notes = createVoicing(triad.tones, 0)
   return {
     kind: 'chord-tone',
@@ -252,28 +273,33 @@ function uniquePermutations<T>(values: T[]): T[][] {
 }
 
 function voicingCandidates(triad: TriadIdentity, voiceCount: ProgressionVoiceCount, forcedInversion?: Inversion): NoteSpelling[][] {
-  const inversions = forcedInversion === undefined ? (triad.quality === 'diminished' ? [1] as Inversion[] : [0, 1, 2] as Inversion[]) : [forcedInversion]
-  const candidates: NoteSpelling[][] = []
-  for (const inversion of inversions) {
-    const bassPitch = triad.tones[inversion]
-    const full = voiceCount === 3
-      ? [...triad.tones]
-      : [...triad.tones, triad.quality === 'diminished' ? triad.tones[1] : triad.tones[0]]
-    const bassIndex = full.findIndex((pitch) => pitchEquals(pitch, bassPitch))
-    const remaining = [...full.slice(0, bassIndex), ...full.slice(bassIndex + 1)]
-    for (const bassOctave of voiceCount === 3 ? [3, 4] : [2, 3]) {
-      const bass = makeNote(bassPitch.letter, bassPitch.accidental, bassOctave)
-      for (const upper of uniquePermutations(remaining)) {
-        const voiced = [bass]
-        upper.forEach((pitch) => voiced.push(noteAtOrAbove(pitch, voiced[voiced.length - 1].midi + 1)))
-        const maxMidi = voiceCount === 3 ? 79 : 84
-        if (voiced[0].midi < 36 || voiced[voiced.length - 1].midi > maxMidi) continue
-        if (voiceCount === 4 && (voiced[1].midi - voiced[0].midi > 19 || voiced[2].midi - voiced[1].midi > 12 || voiced[3].midi - voiced[2].midi > 12)) continue
-        candidates.push(voiced)
+  const inversions = forcedInversion === undefined ? [0, 1, 2] as Inversion[] : [forcedInversion]
+  const duplicateChoices = voiceCount === 3
+    ? [undefined]
+    : triad.quality === 'diminished'
+      ? [triad.tones[1], triad.tones[0], triad.tones[2]]
+      : [triad.tones[0], triad.tones[1], triad.tones[2]]
+
+  const allCandidates: NoteSpelling[][] = []
+  for (const duplicate of duplicateChoices) {
+    for (const inversion of inversions) {
+      const bassPitch = triad.tones[inversion]
+      const full = duplicate ? [...triad.tones, duplicate] : [...triad.tones]
+      const bassIndex = full.findIndex((pitch) => pitchEquals(pitch, bassPitch))
+      const remaining = [...full.slice(0, bassIndex), ...full.slice(bassIndex + 1)]
+      for (const bassOctave of [3, 4]) {
+        const bass = makeNote(bassPitch.letter, bassPitch.accidental, bassOctave)
+        for (const upper of uniquePermutations(remaining)) {
+          const voiced = [bass]
+          upper.forEach((pitch) => voiced.push(noteAtOrAbove(pitch, voiced[voiced.length - 1].midi + 1)))
+          if (voiced[0].midi < AUDIO_MIN_MIDI || voiced[voiced.length - 1].midi > AUDIO_MAX_MIDI) continue
+          if (voiceCount === 4 && (voiced[1].midi - voiced[0].midi > 12 || voiced[2].midi - voiced[1].midi > 12 || voiced[3].midi - voiced[2].midi > 12)) continue
+          allCandidates.push(voiced)
+        }
       }
     }
   }
-  const unique = new Map(candidates.map((item) => [item.map((note) => note.midi).join(','), item]))
+  const unique = new Map(allCandidates.map((item) => [item.map((note) => note.midi).join(','), item]))
   return [...unique.values()]
 }
 
@@ -310,38 +336,37 @@ function movementCost(previous: NoteSpelling[], next: NoteSpelling[], previousTr
   return cost
 }
 
+function voicingPreferenceCost(voicing: NoteSpelling[], triad: TriadIdentity, index: number, length: number): number {
+  const bassIndex = triad.tones.findIndex((tone) => pitchEquals(voicing[0], tone))
+  let cost = 0
+  if ((index === 0 || index === length - 1) && triad.scaleDegree === 1 && bassIndex !== 0) cost += 18
+  if (triad.quality === 'diminished' && bassIndex !== 1) cost += 12
+  if (voicing.length === 4) {
+    const counts = triad.tones.map((tone) => voicing.filter((note) => pitchEquals(note, tone)).length)
+    const preferredIndex = triad.quality === 'diminished' ? 1 : 0
+    if (counts[preferredIndex] < 2) cost += 6
+  }
+  return cost
+}
+
 export function createProgressionVoicings(key: MajorKey, triads: TriadIdentity[], voiceCount: ProgressionVoiceCount): NoteSpelling[][] {
-  const candidateSets = triads.map((triad, index) => {
-    const isOpeningTonic = index === 0 && triad.scaleDegree === 1
-    const isClosingTonic = index === triads.length - 1 && triad.scaleDegree === 1
-    return voicingCandidates(triad, voiceCount, isOpeningTonic || isClosingTonic ? 0 : undefined)
-  })
+  const candidateSets = triads.map((triad) => voicingCandidates(triad, voiceCount))
   if (candidateSets.some((items) => !items.length)) throw new Error('Unable to create a valid progression voicing.')
   const costs = candidateSets.map((items) => items.map(() => Number.POSITIVE_INFINITY))
   const back = candidateSets.map((items) => items.map(() => -1))
-  costs[0] = candidateSets[0].map((voicing) => voicing.reduce((total, note) => total + Math.abs(note.midi - 60), 0) / 20)
+  costs[0] = candidateSets[0].map((voicing) => voicing.reduce((total, note) => total + Math.abs(note.midi - 60), 0) / 20 + voicingPreferenceCost(voicing, triads[0], 0, triads.length))
   for (let index = 1; index < candidateSets.length; index += 1) {
     candidateSets[index].forEach((next, nextIndex) => {
       candidateSets[index - 1].forEach((previous, previousIndex) => {
         if (hasParallelPerfects(previous, next)) return
-        const cost = costs[index - 1][previousIndex] + movementCost(previous, next, triads[index - 1], triads[index], key)
+        const cost = costs[index - 1][previousIndex] + movementCost(previous, next, triads[index - 1], triads[index], key) + voicingPreferenceCost(next, triads[index], index, triads.length)
         if (cost < costs[index][nextIndex]) {
           costs[index][nextIndex] = cost
           back[index][nextIndex] = previousIndex
         }
       })
     })
-    if (costs[index].every((cost) => !Number.isFinite(cost))) {
-      candidateSets[index].forEach((next, nextIndex) => {
-        candidateSets[index - 1].forEach((previous, previousIndex) => {
-          const cost = costs[index - 1][previousIndex] + movementCost(previous, next, triads[index - 1], triads[index], key) + 500
-          if (cost < costs[index][nextIndex]) {
-            costs[index][nextIndex] = cost
-            back[index][nextIndex] = previousIndex
-          }
-        })
-      })
-    }
+    if (costs[index].every((cost) => !Number.isFinite(cost))) throw new Error('Unable to create parallel-free progression voicing.')
   }
   let selected = costs[costs.length - 1].reduce((best, cost, index, values) => cost < values[best] ? index : best, 0)
   const result: NoteSpelling[][] = []
@@ -384,40 +409,76 @@ function directionsFor(direction: KeyPracticeDirection, random: RandomSource): A
     : Array(10).fill(direction) as Array<Exclude<KeyPracticeDirection, 'mixed'>>
 }
 
-function shuffleCoverage<T extends { token: string }>(items: T[], previousSignature: string, random: RandomSource): T[] {
-  let next = shuffle(items, random)
-  for (let attempt = 0; attempt < 4 && next.map((item) => item.token).join('|') === previousSignature; attempt += 1) next = shuffle(items, random)
-  if (next.map((item) => item.token).join('|') === previousSignature && next.length > 1) {
-    const offset = 1 + randomIndex(next.length - 1, random)
-    next = [...next.slice(offset), ...next.slice(0, offset)]
+function hasSafeAdjacency(questions: PracticeQuestion[], previousIdentity: string): boolean {
+  let previous = previousIdentity
+  for (const question of questions) {
+    const identity = questionIdentity(question)
+    if (identity === previous) return false
+    previous = identity
   }
-  return next
+  return true
 }
 
-function createScaleSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string): ScaleDegreeQuestion[] {
+export function arrangeSessionQuestions<T extends PracticeQuestion>(questions: T[], previousSignature = '', previousIdentity = '', random: RandomSource = secureRandom): T[] {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const candidate = shuffle(questions, random)
+    if (hasSafeAdjacency(candidate, previousIdentity) && sessionSignature(candidate) !== previousSignature) return candidate
+  }
+
+  const remaining = [...questions]
+  const arranged: T[] = []
+  let previous = previousIdentity
+  while (remaining.length) {
+    const counts = new Map<string, number>()
+    remaining.forEach((question) => counts.set(questionIdentity(question), (counts.get(questionIdentity(question)) ?? 0) + 1))
+    const eligible = remaining.map((question, index) => ({ question, index, count: counts.get(questionIdentity(question)) ?? 0 })).filter(({ question }) => questionIdentity(question) !== previous)
+    if (!eligible.length) throw new Error('Unable to arrange questions without adjacent duplicates.')
+    const maxCount = Math.max(...eligible.map((item) => item.count))
+    const selected = pickOne(eligible.filter((item) => item.count === maxCount), random)
+    const [question] = remaining.splice(selected.index, 1)
+    arranged.push(question)
+    previous = questionIdentity(question)
+  }
+
+  if (sessionSignature(arranged) !== previousSignature) return arranged
+  for (let offset = 1; offset < arranged.length; offset += 1) {
+    const rotated = [...arranged.slice(offset), ...arranged.slice(0, offset)]
+    if (hasSafeAdjacency(rotated, previousIdentity) && sessionSignature(rotated) !== previousSignature) return rotated
+  }
+  throw new Error('Unable to create a new non-repeating question order.')
+}
+
+function createScaleSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string, previousIdentity: string): ScaleDegreeQuestion[] {
   const key = majorKeyByName(settings.keyName)
   const degrees = [...([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[]), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random)]
   const directions = directionsFor(settings.scaleDirection, random)
-  const entries = degrees.map((degree, index) => ({ degree, direction: directions[index], token: `${degree}:${directions[index]}` }))
-  return shuffleCoverage(entries, previousSignature, random).map((entry) => createScaleDegreeQuestion(key, entry.degree, entry.direction))
+  const questions = degrees.map((degree, index) => createScaleDegreeQuestion(key, degree, directions[index]))
+  return arrangeSessionQuestions(questions, previousSignature, previousIdentity, random)
 }
 
-function createProgressionSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string): ProgressionQuestion[] {
+function createProgressionSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string, previousIdentity: string): ProgressionQuestion[] {
   const key = majorKeyByName(settings.keyName)
   const templates = [...PROGRESSION_TEMPLATES, pickOne(PROGRESSION_TEMPLATES, random)]
   const directions = directionsFor(settings.progressionDirection, random)
-  const entries = templates.map((template, index) => ({ template, direction: directions[index], token: `${template.id}:${directions[index]}` }))
-  return shuffleCoverage(entries, previousSignature, random).map((entry) => createProgressionQuestion(key, entry.template, entry.direction, settings.voiceCount))
+  const questions = templates.map((template, index) => createProgressionQuestion(key, template, directions[index], settings.voiceCount))
+  return arrangeSessionQuestions(questions, previousSignature, previousIdentity, random)
 }
 
-export function createSession(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, keySettings: KeyPracticeSettings, count = 10, random: RandomSource = secureRandom, previousSignature = ''): PracticeQuestion[] {
-  if (kind === 'scale-degree') return createScaleSession(keySettings, random, previousSignature)
-  if (kind === 'progression') return createProgressionSession(keySettings, random, previousSignature)
-  return Array.from({ length: count }, () => kind === 'interval'
-    ? createIntervalQuestion(intervalSettings, random)
-    : kind === 'triad-fill'
-      ? createTriadFillQuestion(triadSettings, random)
-      : createChordToneQuestion(triadSettings, random))
+export function createSession(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, keySettings: KeyPracticeSettings, count = 10, random: RandomSource = secureRandom, previousSignature = '', previousIdentity = ''): PracticeQuestion[] {
+  if (kind === 'scale-degree') return createScaleSession(keySettings, random, previousSignature, previousIdentity)
+  if (kind === 'progression') return createProgressionSession(keySettings, random, previousSignature, previousIdentity)
+  const questions: PracticeQuestion[] = []
+  let previous = previousIdentity
+  for (let index = 0; index < count; index += 1) {
+    const question = kind === 'interval'
+      ? createIntervalQuestion(intervalSettings, random, previous)
+      : kind === 'triad-fill'
+        ? createTriadFillQuestion(triadSettings, random, previous)
+        : createChordToneQuestion(triadSettings, random, previous)
+    questions.push(question)
+    previous = questionIdentity(question)
+  }
+  return questions
 }
 
 export function sessionSignature(questions: PracticeQuestion[]): string {
@@ -428,9 +489,24 @@ export function sessionSignature(questions: PracticeQuestion[]): string {
   }).join('|')
 }
 
+export function questionIdentity(question: PracticeQuestion): string {
+  if (question.kind === 'interval') return intervalQuestionIdentity(question.lower, question.upper)
+  if (question.kind === 'triad-fill') return `triad-fill:${question.triad.symbol}:${question.inversion}`
+  if (question.kind === 'chord-tone') return `chord-tone:${question.triad.symbol}:${question.target}`
+  if (question.kind === 'scale-degree') return `scale-degree:${question.key.name}:${question.degree}:${question.direction}`
+  return `progression:${question.key.name}:${question.templateId}:${question.direction}:${question.voiceCount}`
+}
+
 export function coverageOrderKey(kind: 'scale-degree' | 'progression', settings: KeyPracticeSettings): string {
   const direction = kind === 'scale-degree' ? settings.scaleDirection : settings.progressionDirection
   return `${kind}:${settings.keyName}:${direction}`
+}
+
+export function practiceSequenceKey(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, keySettings: KeyPracticeSettings): string {
+  if (kind === 'interval') return `interval:${[...intervalSettings.degrees].sort().join(',')}:${intervalSettings.difficulty}`
+  if (kind === 'triad-fill' || kind === 'chord-tone') return `${kind}:${[...triadSettings.qualities].sort().join(',')}:${triadSettings.spellingLevel}`
+  if (kind === 'scale-degree') return `${coverageOrderKey(kind, keySettings)}`
+  return `${coverageOrderKey(kind, keySettings)}:${keySettings.voiceCount}`
 }
 
 export function questionStorageKey(question: PracticeQuestion): string {

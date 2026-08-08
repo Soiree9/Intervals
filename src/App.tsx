@@ -13,10 +13,13 @@ import {
   triadSolfege,
 } from './domain/music'
 import {
+  arrangeSessionQuestions,
   coverageOrderKey,
   createIntervalAudition,
   createSession,
   intervalOptionsFor,
+  practiceSequenceKey,
+  questionIdentity,
   questionStorageKey,
   questionSummary,
   secureRandom,
@@ -37,15 +40,17 @@ import type {
   TriadQuality,
   WrongItem,
 } from './domain/types'
-import { initializeAudio, playCadenceThenTone, playChordThenTone, playNotes, playProgression, type AudioSource } from './services/audio'
+import { initializeAudio, playCadenceThenTone, playChordThenTone, playNotes, playProgression, stopAudio, type AudioSource } from './services/audio'
 import {
   loadLastOrder,
+  loadLastQuestion,
   loadSettings,
   loadStats,
   loadWrongItems,
   recordSession,
   removeWrongItem,
   saveLastOrder,
+  saveLastQuestion,
   saveSettings,
   upsertWrongItem,
 } from './services/storage'
@@ -125,6 +130,7 @@ function App() {
   const [intervalPreview, setIntervalPreview] = useState<IntervalPreview | null>(null)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const lastAutoplayId = useRef('')
+  const activeSequenceKey = useRef('')
 
   const question = questions[questionIndex]
   const correctCount = results.filter(Boolean).length
@@ -155,6 +161,8 @@ function App() {
 
   useEffect(() => {
     if (!question) return
+    stopAudio()
+    if (activeSequenceKey.current) saveLastQuestion(activeSequenceKey.current, questionIdentity(question))
     setFeedback(null)
     setActiveSlot(0)
     setIntervalPreview(null)
@@ -174,6 +182,8 @@ function App() {
       setDegreeValues([])
     }
   }, [question])
+
+  useEffect(() => () => stopAudio(), [])
 
   const playQuestion = async (target: PracticeQuestion = question) => {
     if (!target) return
@@ -199,6 +209,7 @@ function App() {
   }, [question, view])
 
   const beginSession = async (nextKind: PracticeKind, suppliedQuestions?: PracticeQuestion[]) => {
+    stopAudio()
     setStarting(true)
     setNotice('')
     try {
@@ -206,20 +217,26 @@ function App() {
       const isCoverageKind = nextKind === 'scale-degree' || nextKind === 'progression'
       const orderKey = isCoverageKind ? coverageOrderKey(nextKind, settings.keyPractice) : ''
       const previousSignature = isCoverageKind ? loadLastOrder(orderKey) : ''
-      const sourceQuestions = suppliedQuestions ?? createSession(
-        nextKind,
-        settings.interval,
-        settings.triad,
-        settings.keyPractice,
-        10,
-        secureRandom,
-        previousSignature,
-      )
+      const sequenceKey = `${suppliedQuestions ? 'review:' : ''}${practiceSequenceKey(nextKind, settings.interval, settings.triad, settings.keyPractice)}`
+      const previousIdentity = loadLastQuestion(sequenceKey)
+      const sourceQuestions = suppliedQuestions
+        ? suppliedQuestions.length > 1 ? arrangeSessionQuestions(suppliedQuestions, '', previousIdentity, secureRandom) : suppliedQuestions
+        : createSession(
+          nextKind,
+          settings.interval,
+          settings.triad,
+          settings.keyPractice,
+          10,
+          secureRandom,
+          previousSignature,
+          previousIdentity,
+        )
       if (!sourceQuestions.length) throw new Error('没有可复习的题目。')
       const nextQuestions = sourceQuestions.slice(0, 10).map((item) => item.kind === 'interval'
         ? { ...item, options: intervalOptionsFor(settings.interval.degrees, settings.interval.difficulty) }
         : item)
       if (isCoverageKind && !suppliedQuestions) saveLastOrder(orderKey, sessionSignature(nextQuestions))
+      activeSequenceKey.current = sequenceKey
       setAudioSource(source)
       setKind(nextKind)
       setQuestions(nextQuestions)
@@ -301,6 +318,8 @@ function App() {
   }
 
   const nextQuestion = () => {
+    stopAudio()
+    setProgressionStep(null)
     if (questionIndex + 1 < questions.length) {
       setQuestionIndex((current) => current + 1)
       return
@@ -312,6 +331,8 @@ function App() {
   }
 
   const exitSession = () => {
+    stopAudio()
+    setProgressionStep(null)
     setQuestions([])
     setView('home')
   }
@@ -439,30 +460,6 @@ function IntervalExercise({ question, settings, feedback, preview, onAnswer, onE
   return <><QuestionHeading eyebrow="INTERVAL READING" title={`${visibleNoteName(question.lower, settings.showOctaves)} – ${visibleNoteName(question.upper, settings.showOctaves)}`} subtitle="观察音名和谱面，选择它们构成的完整音程。" /><Staff notes={[question.lower, question.upper]} label="音程五线谱" /><div className="play-controls"><button type="button" className="play-button" onClick={onPlay}>▶ 重新播放</button><div className="segmented compact"><button type="button" className={settings.interval.playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" className={settings.interval.playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></div><div className="answer-grid">{question.options.map((option) => { const state = !feedback ? '' : option.label === question.answer.label ? 'correct' : option.label === feedback.selected ? 'wrong' : 'muted'; return <button type="button" key={option.label} className={`answer-option ${state} ${preview?.option.label === option.label ? 'exploring' : ''}`} onClick={() => feedback ? onExplore(option) : onAnswer(option.label)}>{option.label}</button> })}</div>{feedback && <div className="interval-preview" aria-live="polite">{preview ? <><strong>{preview.option.label}</strong><span>{visibleNoteName(preview.notes[0], settings.showOctaves)} – {visibleNoteName(preview.notes[1], settings.showOctaves)}</span><small>固定本题低音，只改变高音试听。</small></> : <span>答题后可点击任一选项，试听固定低音下的该音程。</span>}</div>}</>
 }
 
-/*
-function TriadFillExercise({ question, feedback, noteValues, activeSlot, onActiveSlotChange, onChange, onPlay, onSubmit, onValuePlay }: { question: Extract<PracticeQuestion, { kind: 'triad-fill' }>; feedback: AnswerFeedback | null; noteValues: string[]; activeSlot: number; onActiveSlotChange: (index: number) => void; onChange: (values: string[]) => void; onPlay: () => void; onSubmit: () => void; onValuePlay: (value: string, index: number) => void }) {
-  return <><QuestionHeading eyebrow="INVERSION SPELLING" title={`${question.triad.label}（${question.triad.symbol}）`} subtitle="听原位或转位，按实际低到高填写三个音名。" /><button type="button" className="play-button" onClick={onPlay}>▶ 从低到高重播</button>{feedback && <Staff notes={question.notes} label="三和弦谱面" />}<NoteKeyboard values={noteValues} correctValues={feedback ? question.answers : undefined} activeIndex={activeSlot} disabled={Boolean(feedback)} onActiveIndexChange={onActiveSlotChange} onChange={onChange} onValuePlay={feedback ? onValuePlay : undefined} />{feedback && <p className="note-play-hint">点击已填写的音名，可以试听自己的答案。</p>}{!feedback && <button type="button" className="submit-button" disabled={noteValues.some((value) => !value)} onClick={onSubmit}>提交三个音名</button>}</n+}
-
-function ChordToneExercise({ question, feedback, noteValues, onChange, onPlay, onSubmit }: { question: Extract<PracticeQuestion, { kind: 'chord-tone' }>; feedback: AnswerFeedback | null; noteValues: string[]; onChange: (values: string[]) => void; onPlay: () => void; onSubmit: () => void }) {
-  const target = question.target === 'third' ? '三音' : '五音'
-  return <><QuestionHeading eyebrow="CHORD MEMBER" title={`${question.triad.label}（${question.triad.symbol}）`} subtitle={<>{'这个和弦的 '}<strong className="question-target">{target}</strong>{' 是什么？'}</>} /><button type="button" className="play-button" onClick={onPlay}>▶ 同时和弦后播放目标音</button>{feedback && <Staff notes={question.notes} targetIndex={question.targetIndex} label="三和弦原位谱面，目标音已高亮" />}<NoteKeyboard values={noteValues} correctValues={feedback ? [question.answer] : undefined} activeIndex={0} disabled={Boolean(feedback)} onActiveIndexChange={() => undefined} onChange={onChange} />{!feedback && <button type="button" className="submit-button" disabled={!noteValues[0]} onClick={onSubmit}>提交音名</button>}</n+}
-
-function ScaleDegreeExercise({ question, feedback, noteValues, degreeValues, onNoteChange, onDegreeChange, onPlay, onSubmitNotes, onSubmitDegrees }: { question: Extract<PracticeQuestion, { kind: 'scale-degree' }>; feedback: AnswerFeedback | null; noteValues: string[]; degreeValues: number[]; onNoteChange: (values: string[]) => void; onDegreeChange: (values: number[]) => void; onPlay: () => void; onSubmitNotes: () => void; onSubmitDegrees: () => void }) {
-  const isForward = question.direction === 'forward'
-  return <><QuestionHeading eyebrow="SCALE DEGREE" title={isForward ? `${question.key.name} 大调第 ${question.degree} 级是什么音？` : `${question.key.name} 大调中的 ${pitchName(question.note)} 是第几级？`} subtitle="先听 V–I 正格终止，再听目标单音。" /><button type="button" className="play-button" onClick={onPlay}>▶ 重播终止与目标音</button>{isForward ? <><NoteKeyboard values={noteValues} correctValues={feedback ? [pitchName(question.note)] : undefined} activeIndex={0} disabled={Boolean(feedback)} onActiveIndexChange={() => undefined} onChange={onNoteChange} />{!feedback && <button type="button" className="submit-button" disabled={!noteValues[0]} onClick={onSubmitNotes}>提交音名</button>}</> : <DegreeChoices values={degreeValues} correct={feedback ? [question.degree] : undefined} disabled={Boolean(feedback)} onChange={onDegreeChange} />}{feedback && <Staff notes={[question.note]} label="目标音五线谱" />}</n+}
-
-function ProgressionExercise({ question, feedback, noteValues, degreeValues, qualities, activeSlot, activeStep, onActiveSlotChange, onNoteChange, onQualityChange, onDegreeChange, onPlay, onSubmitNotes, onSubmitDegrees }: { question: ProgressionQuestion; feedback: AnswerFeedback | null; noteValues: string[]; degreeValues: number[]; qualities: TriadQuality[]; activeSlot: number; activeStep: number | null; onActiveSlotChange: (index: number) => void; onNoteChange: (values: string[]) => void; onQualityChange: (qualities: TriadQuality[]) => void; onDegreeChange: (values: number[]) => void; onPlay: () => void; onSubmitNotes: () => void; onSubmitDegrees: () => void }) {
-  const forward = question.direction === 'forward'
-  const setQuality = (quality: TriadQuality) => { const next = [...qualities]; next[activeSlot] = quality; onQualityChange(next) }
-  return <><QuestionHeading eyebrow="PROGRESSION" title={`${question.key.name} 大调 · 四小节进行`} subtitle={forward ? '根据级数写出每小节的完整和弦符号。' : '根据和弦符号逐格选择调内级数。'} /><button type="button" className="play-button" onClick={onPlay}>▶ 重播四小节进行（约 88 BPM）</button><div className="progression-grid">{question.triads.map((triad, index) => <div key={index} className={`progression-cell ${activeStep === index ? 'playing' : ''} ${activeSlot === index && !feedback ? 'active' : ''}`} onClick={() => !feedback && onActiveSlotChange(index)}>{forward ? <><small>{triad.roman}</small><strong>{noteValues[index] ? `${noteValues[index]}${QUALITY_SUFFIX[qualities[index] ?? 'major']}` : '—'}</strong></> : <><small>和弦 {index + 1}</small><strong>{triad.symbol}</strong></>}<span>{index + 1}</span></div>)}</div>{forward ? <><NoteKeyboard values={noteValues} activeIndex={activeSlot} disabled={Boolean(feedback)} showSlots={false} onActiveIndexChange={onActiveSlotChange} onChange={onNoteChange} /><div className="quality-row">{(['major', 'minor', 'diminished'] as TriadQuality[]).map((quality) => <button type="button" key={quality} className={qualities[activeSlot] === quality ? 'selected' : ''} disabled={Boolean(feedback)} onClick={() => setQuality(quality)}>{QUALITY_NAMES[quality]}</button>)}</div>{!feedback && <button type="button" className="submit-button" disabled={noteValues.some((value) => !value)} onClick={onSubmitNotes}>提交和弦进行</button>}</> : <DegreeChoices values={degreeValues} correct={feedback ? question.degrees : undefined} disabled={Boolean(feedback)} onChange={onDegreeChange} />}{feedback && <p className="progression-answer">正确答案：{forward ? question.triads.map((triad) => triad.symbol).join(' – ') : question.triads.map((triad) => triad.roman).join(' – ')}</p>}{!forward && !feedback && <button type="button" className="submit-button" disabled={degreeValues.some((value) => !value)} onClick={onSubmitDegrees}>提交级数进行</button>}</n+}
-
-function DegreeChoices({ values, correct, disabled, onChange }: { values: number[]; correct?: readonly number[]; disabled: boolean; onChange: (values: number[]) => void }) {
-  const active = values.findIndex((value) => !value)
-  return <div className="degree-answer"><div className="degree-slots">{values.map((value, index) => <span key={index} className={correct ? value === correct[index] ? 'correct' : 'wrong' : ''}>{value ? `${value}级` : '—'}</span>)}</div><div className="degree-grid">{SCALE_DEGREES.map((degree) => <button type="button" key={degree} disabled={disabled} className={correct ? degree === correct[Math.max(0, active)] ? 'correct' : '' : ''} onClick={() => { if (disabled) return; const next = [...values]; const index = active === -1 ? values.length - 1 : active; next[index] = degree; onChange(next) }}>{degree}</button>)}</div></div>
-}
-
-*/
-
 function TriadFillExercise({ question, feedback, noteValues, activeSlot, onActiveSlotChange, onChange, onPlay, onSubmit, onValuePlay }: { question: Extract<PracticeQuestion, { kind: 'triad-fill' }>; feedback: AnswerFeedback | null; noteValues: string[]; activeSlot: number; onActiveSlotChange: (index: number) => void; onChange: (values: string[]) => void; onPlay: () => void; onSubmit: () => void; onValuePlay: (value: string, index: number) => void }) {
   return (
     <>
@@ -517,7 +514,7 @@ function ProgressionExercise({ question, feedback, noteValues, degreeValues, qua
   return (
     <>
       <QuestionHeading eyebrow="PROGRESSION" title={`${question.key.name} 大调 · 四小节进行`} subtitle={forward ? '根据级数写出每小节的完整和弦符号。' : '根据和弦符号逐格选择调内级数。'} />
-      <button type="button" className="play-button" onClick={onPlay}>▶ 重播四小节进行（约 88 BPM）</button>
+      <button type="button" className="play-button" onClick={onPlay}>▶ 重播四小节进行（约 123 BPM）</button>
       <div className="progression-grid">
         {question.triads.map((triad, index) => <div key={index} className={`progression-cell ${activeStep === index ? 'playing' : ''} ${activeSlot === index && !feedback ? 'active' : ''}`} onClick={() => !feedback && onActiveSlotChange(index)}>
           {forward ? <><small>{triad.roman}</small><strong>{noteValues[index] ? `${noteValues[index]}${QUALITY_SUFFIX[qualities[index] ?? 'major']}` : '—'}</strong></> : <><small>和弦 {index + 1}</small><strong>{triad.symbol}</strong></>}
