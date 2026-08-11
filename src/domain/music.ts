@@ -1,5 +1,8 @@
 import type {
   Accidental,
+  ChordMember,
+  ChordNotation,
+  ChordQuality,
   IntervalDegree,
   IntervalIdentity,
   IntervalQuality,
@@ -8,6 +11,8 @@ import type {
   NoteSpelling,
   PitchSpelling,
   ScaleDegree,
+  SeventhChordIdentity,
+  SeventhChordQuality,
   TriadIdentity,
   TriadQuality,
 } from './types'
@@ -45,6 +50,13 @@ export const TRIAD_QUALITY_TEXT: Record<TriadQuality, string> = {
   major: '大三和弦',
   minor: '小三和弦',
   diminished: '减三和弦',
+}
+
+export const SEVENTH_QUALITY_TEXT: Record<SeventhChordQuality, string> = {
+  major7: '大七和弦',
+  minor7: '小七和弦',
+  dominant7: '属七和弦',
+  'half-diminished7': '半减七和弦',
 }
 
 export const INVERSION_TEXT = ['原位', '第一转位', '第二转位'] as const
@@ -179,6 +191,8 @@ export const MAJOR_KEYS: MajorKey[] = [
   buildMajorKey('F#', 6),
 ]
 
+export const SEVENTH_ROOTS: PitchSpelling[] = ['C', 'G', 'F', 'D', 'Bb', 'A', 'Eb', 'E', 'Ab', 'B', 'Db', 'F#'].map(parsePitchName)
+
 export function keysForCircleLevel(level: 1 | 2 | 3): MajorKey[] {
   return MAJOR_KEYS.slice(0, level === 1 ? 3 : level === 2 ? 7 : 12)
 }
@@ -213,6 +227,84 @@ export function buildTriad(key: MajorKey, scaleDegree: ScaleDegree): TriadIdenti
     symbol: `${rootName}${symbolSuffix}`,
     label: `${rootName} ${TRIAD_QUALITY_TEXT[quality]}`,
   }
+}
+
+const SEVENTH_INTERVALS: Record<SeventhChordQuality, [number, number, number, number]> = {
+  major7: [0, 4, 7, 11],
+  minor7: [0, 3, 7, 10],
+  dominant7: [0, 4, 7, 10],
+  'half-diminished7': [0, 3, 6, 10],
+}
+
+const SEVENTH_ROMAN = ['Imaj7', 'ii7', 'iii7', 'IVmaj7', 'V7', 'vi7', 'viiø7']
+
+function accidentalForChordTone(letter: Letter, targetPitchClass: number): Accidental {
+  const raw = mod(targetPitchClass - NATURAL_PITCH_CLASS[letter], 12)
+  const difference = raw > 6 ? raw - 12 : raw
+  if (difference < -3 || difference > 3) throw new Error(`Chord spelling for ${letter} requires an unsupported accidental.`)
+  return difference as Accidental
+}
+
+export function buildSeventhChord(root: PitchSpelling, quality: SeventhChordQuality): SeventhChordIdentity {
+  const rootLetterIndex = LETTERS.indexOf(root.letter)
+  const rootPitchClass = pitchClass(root)
+  const tones = SEVENTH_INTERVALS[quality].map((semitones, index) => {
+    const letter = LETTERS[(rootLetterIndex + index * 2) % 7]
+    return { letter, accidental: accidentalForChordTone(letter, mod(rootPitchClass + semitones, 12)) }
+  }) as [PitchSpelling, PitchSpelling, PitchSpelling, PitchSpelling]
+  const rootName = pitchName(root)
+  return {
+    root,
+    quality,
+    tones,
+    symbol: formatChordSymbol({ root, quality }, 'standard'),
+    label: `${rootName} ${SEVENTH_QUALITY_TEXT[quality]}`,
+  }
+}
+
+export function buildDiatonicSeventhChord(key: MajorKey, scaleDegree: ScaleDegree): SeventhChordIdentity {
+  if (scaleDegree < 1 || scaleDegree > 7) throw new Error('Scale degree must be 1–7.')
+  const rootIndex = scaleDegree - 1
+  const tones = [
+    key.notes[rootIndex],
+    key.notes[(rootIndex + 2) % 7],
+    key.notes[(rootIndex + 4) % 7],
+    key.notes[(rootIndex + 6) % 7],
+  ] as [PitchSpelling, PitchSpelling, PitchSpelling, PitchSpelling]
+  const third = mod(pitchClass(tones[1]) - pitchClass(tones[0]), 12)
+  const fifth = mod(pitchClass(tones[2]) - pitchClass(tones[0]), 12)
+  const seventh = mod(pitchClass(tones[3]) - pitchClass(tones[0]), 12)
+  let quality: SeventhChordQuality
+  if (third === 4 && fifth === 7 && seventh === 11) quality = 'major7'
+  else if (third === 3 && fifth === 7 && seventh === 10) quality = 'minor7'
+  else if (third === 4 && fifth === 7 && seventh === 10) quality = 'dominant7'
+  else if (third === 3 && fifth === 6 && seventh === 10) quality = 'half-diminished7'
+  else throw new Error(`Unexpected diatonic seventh chord: ${third}/${fifth}/${seventh}`)
+  return {
+    ...buildSeventhChord(tones[0], quality),
+    keyName: key.name,
+    scaleDegree,
+    roman: SEVENTH_ROMAN[rootIndex],
+    tones,
+  }
+}
+
+export function chordMembers(quality: SeventhChordQuality): [ChordMember, ChordMember, ChordMember, ChordMember] {
+  if (quality === 'major7') return ['R', '3', '5', '7']
+  if (quality === 'minor7') return ['R', '♭3', '5', '♭7']
+  if (quality === 'dominant7') return ['R', '3', '5', '♭7']
+  return ['R', '♭3', '♭5', '♭7']
+}
+
+export function formatChordSymbol(chord: { root: PitchSpelling; quality: ChordQuality }, notation: ChordNotation): string {
+  const rootName = pitchName(chord.root)
+  if (chord.quality === 'major') return rootName
+  if (chord.quality === 'minor') return `${rootName}${notation === 'jazz' ? '-' : 'm'}`
+  if (chord.quality === 'diminished') return `${rootName}°`
+  if (chord.quality === 'major7') return `${rootName}${notation === 'jazz' ? '△' : 'maj7'}`
+  if (chord.quality === 'minor7') return `${rootName}${notation === 'jazz' ? '-7' : 'm7'}`
+  if (chord.quality === 'dominant7') return `${rootName}7`
+  return `${rootName}${notation === 'jazz' ? 'ø7' : 'm7♭5'}`
 }
 
 export function triadFormula(quality: TriadQuality): string {
