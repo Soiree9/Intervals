@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   MAJOR_KEYS,
+  SEVENTH_ROOTS,
   analyzeInterval,
+  buildDiatonicSeventhChord,
   buildMajorKey,
+  buildSeventhChord,
   buildTriad,
+  formatChordSymbol,
   makeNote,
   pitchName,
   triadSolfege,
@@ -51,5 +55,33 @@ describe('major keys and diatonic triads', () => {
     expect(triadSolfege('major', 0)).toBe('Do–Mi–Sol')
     expect(triadSolfege('major', 1)).toBe('Mi–Sol–Do')
     expect(triadSolfege('minor', 0)).toBe('Do–Me–Sol')
+  })
+})
+
+describe('seventh chords and chord symbols', () => {
+  it('spells all three practice qualities from the twelve fixed roots', () => {
+    for (const root of SEVENTH_ROOTS) {
+      for (const quality of ['major7', 'minor7', 'dominant7'] as const) {
+        const chord = buildSeventhChord(root, quality)
+        expect(chord.tones.map((tone) => tone.letter)).toHaveLength(4)
+        expect(chord.tones.every((tone) => Math.abs(tone.accidental) <= 1)).toBe(true)
+      }
+    }
+    expect(buildSeventhChord(SEVENTH_ROOTS.find((root) => pitchName(root) === 'D♭')!, 'minor7').tones.map(pitchName)).toEqual(['D♭', 'F♭', 'A♭', 'C♭'])
+  })
+
+  it('builds all seven diatonic seventh-chord qualities in major keys', () => {
+    for (const key of MAJOR_KEYS) {
+      expect(([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[]).map((degree) => buildDiatonicSeventhChord(key, degree).quality)).toEqual(['major7', 'minor7', 'minor7', 'major7', 'dominant7', 'minor7', 'half-diminished7'])
+    }
+  })
+
+  it('formats standard and jazz symbols with a hollow triangle', () => {
+    const c = SEVENTH_ROOTS[0]
+    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'standard')).toBe('Cmaj7')
+    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'jazz')).toBe('C△')
+    expect(formatChordSymbol(buildSeventhChord(c, 'minor7'), 'jazz')).toBe('C-7')
+    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'jazz')).toBe('Bø7')
+    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'standard')).toBe('Bm7♭5')
   })
 })

@@ -9,9 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: '音程与三和弦训练',
-        short_name: '音程训练',
-        description: '跨电脑与手机使用的音程和三和弦音名训练工具',
+        name: '音程、和弦与调训练',
+        short_name: '和弦训练',
+        description: '跨电脑与手机使用的音程、和弦与调训练工具',
         lang: 'zh-CN',
         theme_color: '#172019',
         background_color: '#eeeadd',

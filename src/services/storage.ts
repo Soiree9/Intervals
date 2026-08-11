@@ -1,9 +1,11 @@
-import type { AppSettings, LifetimeStats, PracticeQuestion, WrongItem } from '../domain/types'
+import type { AppSettings, LifetimeStats, PracticeQuestion, ProgressionVoicingMode, WrongItem } from '../domain/types'
 import { questionStorageKey } from '../domain/questions'
 
-const SETTINGS_KEY = 'interval-trainer:settings:v2'
+const SETTINGS_KEY = 'interval-trainer:settings:v3'
+const PREVIOUS_SETTINGS_KEY = 'interval-trainer:settings:v2'
 const LEGACY_SETTINGS_KEY = 'interval-trainer:settings:v1'
-const WRONG_KEY = 'interval-trainer:wrong:v2'
+const WRONG_KEY = 'interval-trainer:wrong:v3'
+const PREVIOUS_WRONG_KEY = 'interval-trainer:wrong:v2'
 const LEGACY_WRONG_KEY = 'interval-trainer:wrong:v1'
 const STATS_KEY = 'interval-trainer:stats:v1'
 const ORDER_KEY = 'interval-trainer:order:v1'
@@ -11,6 +13,7 @@ const LAST_QUESTION_KEY = 'interval-trainer:last-question:v1'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   showOctaves: true,
+  chordNotation: 'standard',
   interval: {
     degrees: [2, 3, 4, 5, 6, 7],
     difficulty: 'basic',
@@ -20,11 +23,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
     qualities: ['major', 'minor', 'diminished'],
     spellingLevel: 1,
   },
+  seventh: {
+    qualities: ['major7', 'minor7', 'dominant7'],
+    playback: 'arpeggio',
+  },
   keyPractice: {
     keyName: 'C',
     scaleDirection: 'mixed',
     progressionDirection: 'mixed',
-    voiceCount: 4,
+    voicingMode: 'four',
   },
 }
 
@@ -45,13 +52,22 @@ function legacySpellingLevel(value: unknown): 1 | 2 | 3 {
 }
 
 export function loadSettings(): AppSettings {
-  const saved = loadJson<Partial<AppSettings>>(SETTINGS_KEY, {})
-  if (Object.keys(saved).length) {
+  const saved = loadJson<Record<string, unknown>>(SETTINGS_KEY, {})
+  const previous = Object.keys(saved).length ? saved : loadJson<Record<string, unknown>>(PREVIOUS_SETTINGS_KEY, {})
+  if (Object.keys(previous).length) {
+    const interval = previous.interval as Partial<AppSettings['interval']> | undefined
+    const triad = previous.triad as Partial<AppSettings['triad']> | undefined
+    const seventh = previous.seventh as Partial<AppSettings['seventh']> | undefined
+    const keyPractice = previous.keyPractice as (Partial<AppSettings['keyPractice']> & { voiceCount?: 3 | 4 }) | undefined
+    const voicingMode: ProgressionVoicingMode = keyPractice?.voicingMode
+      ?? (keyPractice?.voiceCount === 3 ? 'three' : 'four')
     return {
-      showOctaves: saved.showOctaves ?? DEFAULT_SETTINGS.showOctaves,
-      interval: { ...DEFAULT_SETTINGS.interval, ...saved.interval },
-      triad: { ...DEFAULT_SETTINGS.triad, ...saved.triad },
-      keyPractice: { ...DEFAULT_SETTINGS.keyPractice, ...saved.keyPractice },
+      showOctaves: typeof previous.showOctaves === 'boolean' ? previous.showOctaves : DEFAULT_SETTINGS.showOctaves,
+      chordNotation: previous.chordNotation === 'jazz' ? 'jazz' : 'standard',
+      interval: { ...DEFAULT_SETTINGS.interval, ...interval },
+      triad: { ...DEFAULT_SETTINGS.triad, ...triad },
+      seventh: { ...DEFAULT_SETTINGS.seventh, ...seventh },
+      keyPractice: { ...DEFAULT_SETTINGS.keyPractice, ...keyPractice, voicingMode },
     }
   }
   const legacy = loadJson<Record<string, unknown>>(LEGACY_SETTINGS_KEY, {})
@@ -75,9 +91,24 @@ export function saveSettings(settings: AppSettings): void {
 }
 
 export function loadWrongItems(): WrongItem[] {
-  const saved = loadJson<WrongItem[]>(WRONG_KEY, [])
-  const legacy = saved.length ? saved : loadJson<WrongItem[]>(LEGACY_WRONG_KEY, [])
-  return legacy.filter((item) => item?.question?.kind === item.kind)
+  const sourceKey = localStorage.getItem(WRONG_KEY) !== null
+    ? WRONG_KEY
+    : localStorage.getItem(PREVIOUS_WRONG_KEY) !== null
+      ? PREVIOUS_WRONG_KEY
+      : LEGACY_WRONG_KEY
+  const saved = loadJson<WrongItem[]>(sourceKey, [])
+  return saved.flatMap((item) => {
+    if (!item?.question || item.question.kind !== item.kind) return []
+    const raw = item.question as unknown as Record<string, unknown> & { kind: string; triads?: unknown; voiceCount?: 3 | 4 }
+    if (raw.kind !== 'progression' || Array.isArray(raw.chords)) return [item]
+    if (!Array.isArray(raw.triads) || raw.triads.length !== 4) return []
+    const question = {
+      ...raw,
+      chords: raw.triads,
+      voicingMode: raw.voiceCount === 3 ? 'three' : 'four',
+    } as unknown as PracticeQuestion
+    return [{ ...item, question }]
+  })
 }
 
 function saveWrongItems(items: WrongItem[]): void {

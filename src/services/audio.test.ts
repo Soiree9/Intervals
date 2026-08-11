@@ -31,6 +31,7 @@ import {
   PROGRESSION_BPM,
   playCadenceThenTone,
   playChordThenTone,
+  playNotes,
   playProgression,
   stopAudio,
 } from './audio'
@@ -80,5 +81,15 @@ describe('cancelable audio playback', () => {
     await vi.advanceTimersByTimeAsync(PROGRESSION_BAR_SECONDS * 3000)
     expect(onStep).toHaveBeenCalledTimes(2)
     expect(audioMocks.attack).toHaveBeenCalledTimes(2)
+  })
+
+  it('plays seventh-chord notes as an arpeggio or one harmonic attack', async () => {
+    await playNotes(chord, 'arpeggio')
+    expect(audioMocks.attack).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1400)
+    expect(audioMocks.attack).toHaveBeenCalledTimes(3)
+    await playNotes(chord, 'harmonic')
+    expect(audioMocks.attack).toHaveBeenCalledTimes(4)
+    expect(audioMocks.attack.mock.calls.at(-1)?.[0]).toHaveLength(3)
   })
 })
