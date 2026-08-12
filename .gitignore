@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local-only source material. Runtime audio packs live in versioned public/audio/*-v*/
+# directories and are tracked in Git so fresh clones can build and play offline.
+Drop/
+.local-assets/
+public/audio/guitar/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
