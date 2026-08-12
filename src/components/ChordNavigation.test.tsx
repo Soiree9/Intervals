@@ -16,6 +16,7 @@ describe('chord navigation', () => {
     expect(screen.getByRole('button', { name: /密集排列（Closed）/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /开放排列/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /三音和五音/ })).toBeInTheDocument()
+    expect(document.querySelectorAll('.submodule-card')[0]).toHaveTextContent('三音和五音')
     fireEvent.click(screen.getByRole('button', { name: /开放排列/ }))
     expect(choosePractice).toHaveBeenCalledWith('spread-triad-fill')
   })

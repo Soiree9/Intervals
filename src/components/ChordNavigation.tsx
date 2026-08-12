@@ -32,9 +32,9 @@ export function ChordFamilyView({ onBack, onChoose }: { onBack: () => void; onCh
 
 export function TriadPracticeView({ onBack, onChoose }: { onBack: () => void; onChoose: (kind: 'triad-fill' | 'spread-triad-fill' | 'chord-tone') => void }) {
   return <NavigationShell eyebrow="TRIADS" title="选择三和弦练习" backLabel="返回和弦练习" onBack={onBack}>
+    <button type="button" className="submodule-card" onClick={() => onChoose('chord-tone')}><span>3·5</span><strong>三音和五音</strong><small>听原位密集排列，写出指定音</small></button>
     <button type="button" className="submodule-card" onClick={() => onChoose('triad-fill')}><span>●</span><strong>密集排列（Closed）</strong><small>听原位与转位，从低到高写出音名</small></button>
     <button type="button" className="submodule-card" onClick={() => onChoose('spread-triad-fill')}><span>↕</span><strong>开放排列（Spread）</strong><small>听 R–5–3 等排列，从低到高写出音名</small></button>
-    <button type="button" className="submodule-card" onClick={() => onChoose('chord-tone')}><span>3·5</span><strong>三音和五音</strong><small>听原位密集排列，写出指定音</small></button>
   </NavigationShell>
 }
 

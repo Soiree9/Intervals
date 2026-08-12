@@ -31,3 +31,18 @@ button:focus-visible { outline: 3px solid rgba(219, 91, 63, 0.4); outline-offset
 button:disabled { cursor: not-allowed; opacity: 0.52; }
 
 h1, h2, p { margin-top: 0; }
+
+.pwa-update-notice {
+  position: fixed;
+  z-index: 1000;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--forest);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+}
