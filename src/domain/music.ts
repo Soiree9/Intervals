@@ -16,6 +16,7 @@ import type {
   TriadIdentity,
   TriadQuality,
 } from './types'
+import { IONIAN_MODE } from './catalogs'
 
 export const LETTERS: Letter[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 const NATURAL_PITCH_CLASS: Record<Letter, number> = {
@@ -168,8 +169,7 @@ export function buildMajorKey(name: string, signature: number): MajorKey {
   const tonic = parsePitchName(name)
   const tonicLetterIndex = LETTERS.indexOf(tonic.letter)
   const tonicPitchClass = pitchClass(tonic)
-  const majorSteps = [0, 2, 4, 5, 7, 9, 11]
-  const notes = majorSteps.map((step, index) => {
+  const notes = IONIAN_MODE.semitones.map((step, index) => {
     const letter = LETTERS[(tonicLetterIndex + index) % 7]
     return { letter, accidental: accidentalForTarget(letter, mod(tonicPitchClass + step, 12)) }
   })
@@ -257,7 +257,7 @@ export function buildSeventhChord(root: PitchSpelling, quality: SeventhChordQual
     root,
     quality,
     tones,
-    symbol: formatChordSymbol({ root, quality }, 'standard'),
+    symbol: formatChordSymbol({ root, quality }, 'text'),
     label: `${rootName} ${SEVENTH_QUALITY_TEXT[quality]}`,
   }
 }
@@ -299,12 +299,12 @@ export function chordMembers(quality: SeventhChordQuality): [ChordMember, ChordM
 export function formatChordSymbol(chord: { root: PitchSpelling; quality: ChordQuality }, notation: ChordNotation): string {
   const rootName = pitchName(chord.root)
   if (chord.quality === 'major') return rootName
-  if (chord.quality === 'minor') return `${rootName}${notation === 'jazz' ? '-' : 'm'}`
-  if (chord.quality === 'diminished') return `${rootName}°`
-  if (chord.quality === 'major7') return `${rootName}${notation === 'jazz' ? '△' : 'maj7'}`
-  if (chord.quality === 'minor7') return `${rootName}${notation === 'jazz' ? '-7' : 'm7'}`
+  if (chord.quality === 'minor') return `${rootName}${notation === 'symbol' ? '−' : 'm'}`
+  if (chord.quality === 'diminished') return `${rootName}${notation === 'symbol' ? '°' : 'dim'}`
+  if (chord.quality === 'major7') return `${rootName}${notation === 'symbol' ? '△' : 'maj7'}`
+  if (chord.quality === 'minor7') return `${rootName}${notation === 'symbol' ? '−7' : 'm7'}`
   if (chord.quality === 'dominant7') return `${rootName}7`
-  return `${rootName}${notation === 'jazz' ? 'ø7' : 'm7♭5'}`
+  return `${rootName}${notation === 'symbol' ? 'ø7' : 'm7♭5'}`
 }
 
 export function triadFormula(quality: TriadQuality): string {

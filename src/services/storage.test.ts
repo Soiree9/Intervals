@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MAJOR_KEYS, buildTriad } from '../domain/music'
-import { DEFAULT_SETTINGS, loadSettings, loadWrongItems } from './storage'
+import { DEFAULT_SETTINGS, loadSettings, loadWrongItems, saveSettings } from './storage'
 
 describe('storage migrations', () => {
   beforeEach(() => localStorage.clear())
@@ -15,9 +15,45 @@ describe('storage migrations', () => {
       keyPractice: { keyName: 'G', scaleDirection: 'forward', progressionDirection: 'reverse', voiceCount: 3 },
     }))
     const settings = loadSettings()
-    expect(settings.showOctaves).toBe(false)
+    expect(settings.interval.showOctaves).toBe(false)
     expect(settings.keyPractice.voicingMode).toBe('three')
     expect(settings.seventh).toEqual(DEFAULT_SETTINGS.seventh)
+    expect(settings.instrument).toBe('piano')
+    expect(settings.triad.playback).toBe('harmonic')
+  })
+
+  it('defaults old triad settings to harmonic and persists a shared melodic choice', () => {
+    localStorage.setItem('interval-trainer:settings:v3', JSON.stringify({
+      triad: { qualities: ['major'], spellingLevel: 2 },
+    }))
+    expect(loadSettings().triad.playback).toBe('harmonic')
+
+    saveSettings({
+      ...DEFAULT_SETTINGS,
+      triad: { ...DEFAULT_SETTINGS.triad, playback: 'melodic' },
+    })
+    expect(loadSettings().triad.playback).toBe('melodic')
+  })
+
+  it('moves octave visibility into interval settings and migrates notation names', () => {
+    localStorage.setItem('interval-trainer:settings:v3', JSON.stringify({
+      showOctaves: false,
+      chordNotation: 'jazz',
+      interval: { playback: 'harmonic' },
+    }))
+    const settings = loadSettings()
+    expect(settings.interval.showOctaves).toBe(false)
+    expect(settings.interval.playback).toBe('harmonic')
+    expect(settings.chordNotation).toBe('symbol')
+
+    saveSettings({ ...settings, chordNotation: 'text' })
+    expect(JSON.parse(localStorage.getItem('interval-trainer:settings:v4') ?? '{}')).not.toHaveProperty('showOctaves')
+    expect(loadSettings().chordNotation).toBe('text')
+  })
+
+  it('persists the selected guitar across sessions', () => {
+    saveSettings({ ...DEFAULT_SETTINGS, instrument: 'nylon-guitar' })
+    expect(loadSettings().instrument).toBe('nylon-guitar')
   })
 
   it('does not restore old wrong items after the new wrong list was cleared', () => {
