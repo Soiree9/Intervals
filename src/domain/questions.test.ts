@@ -8,13 +8,15 @@ import {
   PROGRESSION_TEMPLATES,
   DROP2_PATTERNS,
   SHELL_PATTERNS,
+  SPREAD_TRIAD_PATTERNS,
   createChordToneQuestion,
   createIntervalAudition,
   createIntervalQuestion,
   createProgressionVoicings,
   createJazzProgressionVoicings,
-  createSession,
   createSeventhVoicing,
+  createSpreadTriadFillQuestion,
+  createSpreadVoicing,
   createTriadFillQuestion,
   createVoicing,
   intervalOptionsFor,
@@ -22,17 +24,20 @@ import {
   questionIdentity,
   sessionSignature,
 } from './questions'
+import { createSession } from './session'
 import type { IntervalSettings, KeyPracticeSettings, ScaleDegree, SeventhChordSettings, TriadSettings } from './types'
 
 const intervalSettings: IntervalSettings = {
   degrees: [2, 3, 4, 5, 6, 7],
   difficulty: 'advanced',
   playback: 'melodic',
+  showOctaves: true,
 }
 
 const triadSettings: TriadSettings = {
   qualities: ['major', 'minor', 'diminished'],
   spellingLevel: 3,
+  playback: 'harmonic',
 }
 
 const keySettings: KeyPracticeSettings = {
@@ -62,6 +67,18 @@ describe('question generation', () => {
       expect(question.upper.midi).toBeGreaterThan(question.lower.midi)
       expect(question.options).toEqual(intervalOptionsFor(intervalSettings.degrees, 'advanced'))
       expect(question.options.map((option) => option.label)).toContain(question.answer.label)
+    }
+  })
+
+  it('excludes impractical altered intervals while keeping the useful advanced set', () => {
+    const options = intervalOptionsFor(intervalSettings.degrees, 'advanced')
+    const labels = options.map((option) => option.label)
+    expect(labels).not.toEqual(expect.arrayContaining(['增二度', '减三度', '增三度', '减四度', '减六度', '增六度', '增七度']))
+    expect(labels).toEqual(expect.arrayContaining(['增四度', '减五度', '增五度', '减七度']))
+
+    for (let index = 0; index < 1000; index += 1) {
+      const question = createIntervalQuestion(intervalSettings, () => index / 1000)
+      expect(labels).toContain(question.answer.label)
     }
   })
 
@@ -115,6 +132,76 @@ describe('question generation', () => {
     }
   })
 
+  it('voices every usable Spread pattern with exact members in ascending G3–F5 range', () => {
+    const coveredPatterns = new Set<string>()
+    const coveredQualities = new Set<string>()
+    for (const key of MAJOR_KEYS) {
+      for (const degree of [1, 2, 3, 4, 5, 6, 7] as ScaleDegree[]) {
+        const triad = buildTriad(key, degree)
+        for (const pattern of SPREAD_TRIAD_PATTERNS) {
+          try {
+            const notes = createSpreadVoicing(triad.tones, pattern.id)
+            expect(notes.map(pitchName)).toEqual(pattern.order.map((index) => pitchName(triad.tones[index])))
+            expect(notes.every((note, index) => note.midi >= AUDIO_MIN_MIDI && note.midi <= AUDIO_MAX_MIDI && (index === 0 || note.midi > notes[index - 1].midi))).toBe(true)
+            coveredPatterns.add(pattern.id)
+            coveredQualities.add(triad.quality)
+          } catch {
+            // Some root and pattern combinations cannot fit the intentionally narrow G3–F5 range.
+          }
+        }
+      }
+    }
+    expect(coveredPatterns).toEqual(new Set(SPREAD_TRIAD_PATTERNS.map((pattern) => pattern.id)))
+    expect(coveredQualities).toEqual(new Set(triadSettings.qualities))
+  })
+
+  it('balances Closed inversions and Spread patterns and qualities in ten questions', () => {
+    const closed = createSession('triad-fill', intervalSettings, triadSettings, seventhSettings, keySettings, 10, seeded())
+      .filter((question) => question.kind === 'triad-fill')
+    expect(new Set(closed.map((question) => question.inversion))).toEqual(new Set([0, 1, 2]))
+    expect(new Set(closed.map((question) => question.triad.quality))).toEqual(new Set(triadSettings.qualities))
+
+    const spread = createSession('spread-triad-fill', intervalSettings, triadSettings, seventhSettings, keySettings, 10, seeded())
+      .filter((question) => question.kind === 'spread-triad-fill')
+    expect(new Set(spread.map((question) => question.pattern))).toEqual(new Set(SPREAD_TRIAD_PATTERNS.map((pattern) => pattern.id)))
+    expect(new Set(spread.map((question) => question.triad.quality))).toEqual(new Set(triadSettings.qualities))
+    spread.forEach((question) => expect(question.answers).toEqual(question.notes.map(pitchName)))
+    expect(questionIdentity(closed[0])).not.toBe(questionIdentity({ ...spread[0], triad: closed[0].triad, pattern: 'R53' }))
+  })
+
+  it('generates each Spread pattern for major, minor, and diminished triads', () => {
+    for (const spellingLevel of [1, 2, 3] as const) {
+      for (const quality of triadSettings.qualities) {
+        const settings: TriadSettings = { qualities: [quality], spellingLevel, playback: 'harmonic' }
+        const session = createSession('spread-triad-fill', intervalSettings, settings, seventhSettings, keySettings, 10, seeded())
+          .filter((question) => question.kind === 'spread-triad-fill')
+        expect(new Set(session.map((question) => question.pattern))).toEqual(new Set(SPREAD_TRIAD_PATTERNS.map((pattern) => pattern.id)))
+        for (const pattern of SPREAD_TRIAD_PATTERNS) {
+          const question = createSpreadTriadFillQuestion(settings, seeded(), '', pattern.id, quality)
+          expect(question.pattern).toBe(pattern.id)
+          expect(question.triad.quality).toBe(quality)
+          expect(question.answers).toEqual(pattern.order.map((index) => pitchName(question.triad.tones[index])))
+        }
+      }
+    }
+  })
+
+  it('spells altered interval auditions with the required double or triple accidental', () => {
+    const option = (label: string) => intervalOptionsFor(intervalSettings.degrees, 'advanced').find((identity) => identity.label === label)!
+    expect(pitchName(createIntervalAudition(makeNote('E', -1, 4), option('减五度'))[1])).toBe('B♭♭')
+    expect(pitchName(createIntervalAudition(makeNote('E', -1, 4), option('纯五度'))[1])).toBe('B♭')
+    expect(pitchName(createIntervalAudition(makeNote('F', -1, 4), option('小七度'))[1])).toBe('E♭♭')
+    expect(pitchName(createIntervalAudition(makeNote('F', -1, 4), option('减七度'))[1])).toBe('E♭♭♭')
+    expect(pitchName(createIntervalAudition(makeNote('C', 1, 4), option('增四度'))[1])).toBe('F♯♯')
+  })
+
+  it('keeps the standalone third-and-fifth quiz in Closed root position', () => {
+    for (let run = 0; run < 30; run += 1) {
+      const question = createChordToneQuestion(triadSettings, seeded(run + 1))
+      expect(question.notes).toEqual(createVoicing(question.triad.tones, 0))
+    }
+  })
+
   it('covers all seven scale degrees and exactly five questions in each mixed direction', () => {
     const session = createSession('scale-degree', intervalSettings, triadSettings, seventhSettings, keySettings, 10, seeded())
     const questions = session.filter((question) => question.kind === 'scale-degree')
@@ -132,7 +219,7 @@ describe('question generation', () => {
   })
 
   it('never places identical questions next to each other, including across sessions', () => {
-    for (const practiceKind of ['interval', 'triad-fill', 'chord-tone', 'drop2-voicing', 'shell-voicing', 'scale-degree', 'progression'] as const) {
+    for (const practiceKind of ['interval', 'triad-fill', 'spread-triad-fill', 'chord-tone', 'drop2-voicing', 'shell-voicing', 'scale-degree', 'progression'] as const) {
       const first = createSession(practiceKind, intervalSettings, triadSettings, seventhSettings, keySettings, 10, seeded())
       for (let index = 1; index < first.length; index += 1) expect(questionIdentity(first[index])).not.toBe(questionIdentity(first[index - 1]))
       const previous = questionIdentity(first.at(-1)!)
@@ -170,6 +257,14 @@ describe('question generation', () => {
     }
     expect(coveredPatterns).toEqual(new Set([...DROP2_PATTERNS, ...SHELL_PATTERNS].map((item) => item.id)))
     expect(coveredRoots).toEqual(new Set(SEVENTH_ROOTS.map(pitchName)))
+  })
+
+  it('defines Drop 2 by lowering the second-highest closed-position tone by one octave', () => {
+    const cMajor7 = buildSeventhChord(SEVENTH_ROOTS[0], 'major7')
+    const voicing = createSeventhVoicing(cMajor7, '5R37')
+    expect(voicing.answer).toEqual(['5', 'R', '3', '7'])
+    expect(voicing.notes.map(pitchName)).toEqual(['G', 'C', 'E', 'B'])
+    expect(voicing.notes.map((note) => note.midi)).toEqual([55, 60, 64, 71])
   })
 
   it('balances seventh-chord qualities and all voicing patterns in ten questions', () => {

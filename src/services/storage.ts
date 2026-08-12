@@ -1,8 +1,9 @@
-import type { AppSettings, LifetimeStats, PracticeQuestion, ProgressionVoicingMode, WrongItem } from '../domain/types'
+import type { AppSettings, ChordNotation, LifetimeStats, PracticeQuestion, ProgressionVoicingMode, WrongItem } from '../domain/types'
 import { questionStorageKey } from '../domain/questions'
 
-const SETTINGS_KEY = 'interval-trainer:settings:v3'
-const PREVIOUS_SETTINGS_KEY = 'interval-trainer:settings:v2'
+const SETTINGS_KEY = 'interval-trainer:settings:v4'
+const PREVIOUS_SETTINGS_KEY = 'interval-trainer:settings:v3'
+const OLDER_SETTINGS_KEY = 'interval-trainer:settings:v2'
 const LEGACY_SETTINGS_KEY = 'interval-trainer:settings:v1'
 const WRONG_KEY = 'interval-trainer:wrong:v3'
 const PREVIOUS_WRONG_KEY = 'interval-trainer:wrong:v2'
@@ -12,16 +13,18 @@ const ORDER_KEY = 'interval-trainer:order:v1'
 const LAST_QUESTION_KEY = 'interval-trainer:last-question:v1'
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  showOctaves: true,
-  chordNotation: 'standard',
+  chordNotation: 'text',
+  instrument: 'piano',
   interval: {
     degrees: [2, 3, 4, 5, 6, 7],
     difficulty: 'basic',
     playback: 'melodic',
+    showOctaves: true,
   },
   triad: {
     qualities: ['major', 'minor', 'diminished'],
     spellingLevel: 1,
+    playback: 'harmonic',
   },
   seventh: {
     qualities: ['major7', 'minor7', 'dominant7'],
@@ -51,9 +54,18 @@ function legacySpellingLevel(value: unknown): 1 | 2 | 3 {
   return value === 2 || value === 3 ? value : 1
 }
 
+function migratedChordNotation(value: unknown): ChordNotation {
+  return value === 'symbol' || value === 'jazz' ? 'symbol' : 'text'
+}
+
 export function loadSettings(): AppSettings {
   const saved = loadJson<Record<string, unknown>>(SETTINGS_KEY, {})
-  const previous = Object.keys(saved).length ? saved : loadJson<Record<string, unknown>>(PREVIOUS_SETTINGS_KEY, {})
+  const previousV3 = loadJson<Record<string, unknown>>(PREVIOUS_SETTINGS_KEY, {})
+  const previous = Object.keys(saved).length
+    ? saved
+    : Object.keys(previousV3).length
+      ? previousV3
+      : loadJson<Record<string, unknown>>(OLDER_SETTINGS_KEY, {})
   if (Object.keys(previous).length) {
     const interval = previous.interval as Partial<AppSettings['interval']> | undefined
     const triad = previous.triad as Partial<AppSettings['triad']> | undefined
@@ -61,10 +73,15 @@ export function loadSettings(): AppSettings {
     const keyPractice = previous.keyPractice as (Partial<AppSettings['keyPractice']> & { voiceCount?: 3 | 4 }) | undefined
     const voicingMode: ProgressionVoicingMode = keyPractice?.voicingMode
       ?? (keyPractice?.voiceCount === 3 ? 'three' : 'four')
+    const showOctaves = typeof interval?.showOctaves === 'boolean'
+      ? interval.showOctaves
+      : typeof previous.showOctaves === 'boolean'
+        ? previous.showOctaves
+        : DEFAULT_SETTINGS.interval.showOctaves
     return {
-      showOctaves: typeof previous.showOctaves === 'boolean' ? previous.showOctaves : DEFAULT_SETTINGS.showOctaves,
-      chordNotation: previous.chordNotation === 'jazz' ? 'jazz' : 'standard',
-      interval: { ...DEFAULT_SETTINGS.interval, ...interval },
+      chordNotation: migratedChordNotation(previous.chordNotation),
+      instrument: previous.instrument === 'nylon-guitar' ? 'nylon-guitar' : 'piano',
+      interval: { ...DEFAULT_SETTINGS.interval, ...interval, showOctaves },
       triad: { ...DEFAULT_SETTINGS.triad, ...triad },
       seventh: { ...DEFAULT_SETTINGS.seventh, ...seventh },
       keyPractice: { ...DEFAULT_SETTINGS.keyPractice, ...keyPractice, voicingMode },
@@ -74,8 +91,12 @@ export function loadSettings(): AppSettings {
   const legacyTriad = legacy.triad as Record<string, unknown> | undefined
   const migrated = {
     ...DEFAULT_SETTINGS,
-    showOctaves: typeof legacy.showOctaves === 'boolean' ? legacy.showOctaves : DEFAULT_SETTINGS.showOctaves,
-    interval: { ...DEFAULT_SETTINGS.interval, ...(legacy.interval as Partial<AppSettings['interval']> | undefined) },
+    chordNotation: migratedChordNotation(legacy.chordNotation),
+    interval: {
+      ...DEFAULT_SETTINGS.interval,
+      ...(legacy.interval as Partial<AppSettings['interval']> | undefined),
+      showOctaves: typeof legacy.showOctaves === 'boolean' ? legacy.showOctaves : DEFAULT_SETTINGS.interval.showOctaves,
+    },
     triad: {
       ...DEFAULT_SETTINGS.triad,
       qualities: Array.isArray(legacyTriad?.qualities) ? legacyTriad.qualities as AppSettings['triad']['qualities'] : DEFAULT_SETTINGS.triad.qualities,

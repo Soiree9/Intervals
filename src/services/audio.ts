@@ -1,64 +1,72 @@
-import type { NoteSpelling } from '../domain/types'
-import type { PolySynth, Sampler } from 'tone'
+import type { InstrumentId, NoteSpelling } from '../domain/types'
+import type { EQ3, PolySynth, Sampler } from 'tone'
+import { playbackPolicyForInstrument, samplePackForInstrument } from './instruments'
 
 type ToneModule = typeof import('tone')
-export type AudioSource = 'piano' | 'synth'
+export type AudioSource = InstrumentId | 'synth'
 
 let tone: ToneModule | null = null
-let sampler: Sampler | null = null
 let synth: PolySynth | null = null
-let sampleReady = false
-let initialization: Promise<AudioSource> | null = null
+const samplers = new Map<InstrumentId, Sampler>()
+const equalizers = new Map<InstrumentId, EQ3>()
+const readyInstruments = new Set<InstrumentId>()
+const initializations = new Map<InstrumentId, Promise<AudioSource>>()
 let playbackGeneration = 0
 const playbackTimers = new Set<number>()
 
 export const PROGRESSION_BPM = 88 * 1.4
 export const PROGRESSION_BAR_SECONDS = (60 / PROGRESSION_BPM) * 4
-
-const sampleUrls = {
-  C4: 'C4.mp3',
-  'D#4': 'Ds4.mp3',
-  'F#4': 'Fs4.mp3',
-  A4: 'A4.mp3',
-  C5: 'C5.mp3',
-  'D#5': 'Ds5.mp3',
-  'F#5': 'Fs5.mp3',
-  A5: 'A5.mp3',
-  C6: 'C6.mp3',
-}
+export const GUITAR_STRUM_SECONDS = playbackPolicyForInstrument('nylon-guitar').strumSeconds
+export const SCALE_DEGREE_PLAYBACK_RATE = 0.85
+export const SEQUENTIAL_START_LEAD_SECONDS = 0.08
 
 function timeout(milliseconds: number): Promise<never> {
   return new Promise((_, reject) => window.setTimeout(() => reject(new Error('Audio sample loading timed out.')), milliseconds))
 }
 
-export async function initializeAudio(): Promise<AudioSource> {
-  if (initialization) return initialization
-  initialization = (async () => {
-    tone = await import('tone')
-    await tone.start()
+async function ensureTone(): Promise<ToneModule> {
+  if (!tone) tone = await import('tone')
+  await tone.start()
+  if (!synth) {
     synth = new tone.PolySynth(tone.Synth, {
       envelope: { attack: 0.01, decay: 0.25, sustain: 0.25, release: 0.8 },
       oscillator: { type: 'triangle8' },
       volume: -9,
     }).toDestination()
+  }
+  return tone
+}
 
+export async function initializeAudio(instrument: InstrumentId = 'piano'): Promise<AudioSource> {
+  const existing = initializations.get(instrument)
+  if (existing) return existing
+  const initialization = (async () => {
+    const toneModule = await ensureTone()
+    const samplePack = samplePackForInstrument(instrument)
     try {
-      sampler = new tone.Sampler({
-        urls: sampleUrls,
-        baseUrl: `${import.meta.env.BASE_URL}audio/`,
-        release: 1.1,
-        volume: -5,
-      }).toDestination()
-      await Promise.race([tone.loaded(), timeout(8000)])
-      sampleReady = true
-      return 'piano'
+      const sampler = new toneModule.Sampler({
+        urls: samplePack.urls,
+        baseUrl: samplePack.baseUrl,
+        release: samplePack.release,
+        volume: samplePack.gainDb,
+      })
+      const equalizer = new toneModule.EQ3(samplePack.eq.low, samplePack.eq.mid, samplePack.eq.high).toDestination()
+      sampler.connect(equalizer)
+      samplers.set(instrument, sampler)
+      equalizers.set(instrument, equalizer)
+      await Promise.race([toneModule.loaded(), timeout(8000)])
+      readyInstruments.add(instrument)
+      return instrument
     } catch {
-      sampler?.dispose()
-      sampler = null
-      sampleReady = false
+      samplers.get(instrument)?.dispose()
+      equalizers.get(instrument)?.dispose()
+      samplers.delete(instrument)
+      equalizers.delete(instrument)
+      readyInstruments.delete(instrument)
       return 'synth'
     }
   })()
+  initializations.set(instrument, initialization)
   return initialization
 }
 
@@ -67,16 +75,17 @@ function frequency(note: NoteSpelling): number {
   return tone.Frequency(note.midi, 'midi').toFrequency()
 }
 
-function trigger(value: number | number[], duration: number, time: number): void {
-  if (sampleReady && sampler) sampler.triggerAttackRelease(value, duration, time)
+function trigger(value: number | number[], duration: number, time: number, instrument: InstrumentId): void {
+  const sampler = samplers.get(instrument)
+  if (readyInstruments.has(instrument) && sampler) sampler.triggerAttackRelease(value, duration, time)
   else synth?.triggerAttackRelease(value, duration, time)
 }
 
 export function stopAudio(): void {
   playbackGeneration += 1
-  playbackTimers.forEach((timer) => window.clearTimeout(timer))
+  if (tone) playbackTimers.forEach((timer) => tone?.getContext().clearTimeout(timer))
   playbackTimers.clear()
-  sampler?.releaseAll()
+  samplers.forEach((sampler) => sampler.releaseAll())
   synth?.releaseAll()
 }
 
@@ -85,62 +94,75 @@ function beginPlayback(): number {
   return playbackGeneration
 }
 
-function triggerNow(value: number | number[], duration: number): void {
-  if (tone) trigger(value, duration, tone.now() + 0.02)
+function triggerNow(value: number | number[], duration: number, instrument: InstrumentId): void {
+  if (tone) trigger(value, duration, tone.now() + 0.02, instrument)
 }
 
 function schedulePlayback(generation: number, delay: number, action: () => void): void {
-  const timer = window.setTimeout(() => {
+  if (!tone) return
+  const timer = tone.getContext().setTimeout(() => {
     playbackTimers.delete(timer)
     if (generation === playbackGeneration) action()
-  }, delay)
+  }, delay / 1000)
   playbackTimers.add(timer)
 }
 
-export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmonic' | 'arpeggio'): Promise<AudioSource> {
+function triggerVoicing(generation: number, values: number[], duration: number, instrument: InstrumentId): void {
+  const policy = playbackPolicyForInstrument(instrument)
+  if (policy.chordAttack === 'simultaneous') {
+    triggerNow(values, duration, instrument)
+    return
+  }
+  values.forEach((value, index) => {
+    if (index === 0) triggerNow(value, duration, instrument)
+    else schedulePlayback(generation, index * policy.strumSeconds * 1000, () => triggerNow(value, duration, instrument))
+  })
+}
+
+export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmonic' | 'arpeggio', instrument: InstrumentId = 'piano'): Promise<AudioSource> {
   const generation = beginPlayback()
-  const source = await initializeAudio()
+  const source = await initializeAudio(instrument)
   if (!tone || generation !== playbackGeneration) return source
   const frequencies = notes.map(frequency)
   if (mode === 'harmonic') {
-    triggerNow(frequencies, 1.2)
+    triggerVoicing(generation, frequencies, 1.2, instrument)
   } else {
     const gap = mode === 'arpeggio' ? 0.48 : 0.68
     frequencies.forEach((value, index) => {
-      if (index === 0) triggerNow(value, 0.58)
-      else schedulePlayback(generation, index * gap * 1000, () => triggerNow(value, 0.58))
+      schedulePlayback(generation, (SEQUENTIAL_START_LEAD_SECONDS + index * gap) * 1000, () => triggerNow(value, 0.58, instrument))
     })
   }
   return source
 }
 
-export async function playChordThenTone(chord: NoteSpelling[], target: NoteSpelling): Promise<AudioSource> {
+export async function playChordThenTone(chord: NoteSpelling[], target: NoteSpelling, instrument: InstrumentId = 'piano'): Promise<AudioSource> {
   const generation = beginPlayback()
-  const source = await initializeAudio()
+  const source = await initializeAudio(instrument)
   if (!tone || generation !== playbackGeneration) return source
-  triggerNow(chord.map(frequency), 1.2)
-  schedulePlayback(generation, 1550, () => triggerNow(frequency(target), 0.8))
+  triggerVoicing(generation, chord.map(frequency), 1.2, instrument)
+  schedulePlayback(generation, 1550, () => triggerNow(frequency(target), 0.8, instrument))
   return source
 }
 
-export async function playCadenceThenTone(cadence: [NoteSpelling[], NoteSpelling[]], target: NoteSpelling): Promise<AudioSource> {
+export async function playCadenceThenTone(cadence: [NoteSpelling[], NoteSpelling[]], target: NoteSpelling, instrument: InstrumentId = 'piano'): Promise<AudioSource> {
   const generation = beginPlayback()
-  const source = await initializeAudio()
+  const source = await initializeAudio(instrument)
   if (!tone || generation !== playbackGeneration) return source
-  triggerNow(cadence[0].map(frequency), 1.05)
-  schedulePlayback(generation, 1300, () => triggerNow(cadence[1].map(frequency), 1.25))
-  schedulePlayback(generation, 2900, () => triggerNow(frequency(target), 0.8))
+  const slower = (value: number) => value / SCALE_DEGREE_PLAYBACK_RATE
+  triggerVoicing(generation, cadence[0].map(frequency), slower(1.05), instrument)
+  schedulePlayback(generation, slower(1300), () => triggerVoicing(generation, cadence[1].map(frequency), slower(1.25), instrument))
+  schedulePlayback(generation, slower(2900), () => triggerNow(frequency(target), slower(0.8), instrument))
   return source
 }
 
-export async function playProgression(voicings: NoteSpelling[][], onStep?: (index: number) => void): Promise<AudioSource> {
+export async function playProgression(voicings: NoteSpelling[][], onStep?: (index: number) => void, instrument: InstrumentId = 'piano'): Promise<AudioSource> {
   const generation = beginPlayback()
-  const source = await initializeAudio()
+  const source = await initializeAudio(instrument)
   if (!tone || generation !== playbackGeneration) return source
   voicings.forEach((voicing, index) => {
     const playBar = () => {
       onStep?.(index)
-      triggerNow(voicing.map(frequency), PROGRESSION_BAR_SECONDS - 0.18)
+      triggerVoicing(generation, voicing.map(frequency), PROGRESSION_BAR_SECONDS - 0.18, instrument)
     }
     if (index === 0) playBar()
     else schedulePlayback(generation, index * PROGRESSION_BAR_SECONDS * 1000, playBar)

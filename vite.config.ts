@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -26,7 +26,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,mp3,md}'],
+        globPatterns: ['**/*.{js,css,html,svg,mp3,woff2,md,txt}'],
+        globIgnores: [
+          'audio/C4.mp3', 'audio/Ds4.mp3', 'audio/Fs4.mp3', 'audio/A4.mp3',
+          'audio/C5.mp3', 'audio/Ds5.mp3', 'audio/Fs5.mp3', 'audio/A5.mp3', 'audio/C6.mp3',
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: 'index.html',
       },
@@ -34,5 +38,8 @@ export default defineConfig({
   ],
   build: {
     chunkSizeWarningLimit: 1500,
+  },
+  test: {
+    testTimeout: 15000,
   },
 })

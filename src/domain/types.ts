@@ -8,15 +8,17 @@ export type SeventhChordQuality = 'major7' | 'minor7' | 'dominant7' | 'half-dimi
 export type PracticeSeventhChordQuality = Exclude<SeventhChordQuality, 'half-diminished7'>
 export type ChordQuality = TriadQuality | SeventhChordQuality
 export type ChordMember = 'R' | '3' | '♭3' | '5' | '♭5' | '7' | '♭7'
+export type SpreadTriadPattern = 'R53' | '3R5' | '53R'
 export type Drop2Pattern = '5R37' | '37R5' | '735R' | 'R573'
 export type ShellPattern = 'R37' | 'R73'
-export type ChordNotation = 'standard' | 'jazz'
+export type ChordNotation = 'text' | 'symbol'
+export type InstrumentId = 'piano' | 'nylon-guitar'
 export type Inversion = 0 | 1 | 2
 export type ChordFamily = 'triad' | 'seventh'
 export type KeyPracticeDirection = 'forward' | 'reverse' | 'mixed'
 export type ProgressionVoiceCount = 3 | 4
 export type ProgressionVoicingMode = 'three' | 'four' | 'shell' | 'drop2'
-export type PracticeKind = 'interval' | 'triad-fill' | 'chord-tone' | 'drop2-voicing' | 'shell-voicing' | 'scale-degree' | 'progression'
+export type PracticeKind = 'interval' | 'triad-fill' | 'spread-triad-fill' | 'chord-tone' | 'drop2-voicing' | 'shell-voicing' | 'scale-degree' | 'progression'
 
 export interface PitchSpelling {
   letter: Letter
@@ -83,6 +85,15 @@ export interface TriadFillQuestion {
   answers: [string, string, string]
 }
 
+export interface SpreadTriadFillQuestion {
+  kind: 'spread-triad-fill'
+  id: string
+  triad: TriadIdentity
+  pattern: SpreadTriadPattern
+  notes: [NoteSpelling, NoteSpelling, NoteSpelling]
+  answers: [string, string, string]
+}
+
 export interface ChordToneQuestion {
   kind: 'chord-tone'
   id: string
@@ -133,17 +144,19 @@ export interface ProgressionQuestion {
   voicings: [NoteSpelling[], NoteSpelling[], NoteSpelling[], NoteSpelling[]]
 }
 
-export type PracticeQuestion = IntervalQuestion | TriadFillQuestion | ChordToneQuestion | Drop2VoicingQuestion | ShellVoicingQuestion | ScaleDegreeQuestion | ProgressionQuestion
+export type PracticeQuestion = IntervalQuestion | TriadFillQuestion | SpreadTriadFillQuestion | ChordToneQuestion | Drop2VoicingQuestion | ShellVoicingQuestion | ScaleDegreeQuestion | ProgressionQuestion
 
 export interface IntervalSettings {
   degrees: IntervalDegree[]
   difficulty: 'basic' | 'advanced'
   playback: 'melodic' | 'harmonic'
+  showOctaves: boolean
 }
 
 export interface TriadSettings {
   qualities: TriadQuality[]
   spellingLevel: 1 | 2 | 3
+  playback: 'melodic' | 'harmonic'
 }
 
 export interface SeventhChordSettings {
@@ -158,9 +171,15 @@ export interface KeyPracticeSettings {
   voicingMode: ProgressionVoicingMode
 }
 
+export interface PracticePlaybackSettings {
+  interval: IntervalSettings['playback']
+  triad: TriadSettings['playback']
+  seventh: SeventhChordSettings['playback']
+}
+
 export interface AppSettings {
-  showOctaves: boolean
   chordNotation: ChordNotation
+  instrument: InstrumentId
   interval: IntervalSettings
   triad: TriadSettings
   seventh: SeventhChordSettings

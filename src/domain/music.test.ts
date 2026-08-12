@@ -76,12 +76,14 @@ describe('seventh chords and chord symbols', () => {
     }
   })
 
-  it('formats standard and jazz symbols with a hollow triangle', () => {
+  it('formats complete text and symbol chord systems', () => {
     const c = SEVENTH_ROOTS[0]
-    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'standard')).toBe('Cmaj7')
-    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'jazz')).toBe('C△')
-    expect(formatChordSymbol(buildSeventhChord(c, 'minor7'), 'jazz')).toBe('C-7')
-    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'jazz')).toBe('Bø7')
-    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'standard')).toBe('Bm7♭5')
+    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'text')).toBe('Cmaj7')
+    expect(formatChordSymbol(buildSeventhChord(c, 'major7'), 'symbol')).toBe('C△')
+    expect(formatChordSymbol(buildSeventhChord(c, 'minor7'), 'symbol')).toBe('C−7')
+    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'symbol')).toBe('Bø7')
+    expect(formatChordSymbol(buildDiatonicSeventhChord(MAJOR_KEYS[0], 7), 'text')).toBe('Bm7♭5')
+    expect(formatChordSymbol(buildTriad(MAJOR_KEYS[0], 7), 'text')).toBe('Bdim')
+    expect(formatChordSymbol(buildTriad(MAJOR_KEYS[0], 7), 'symbol')).toBe('B°')
   })
 })

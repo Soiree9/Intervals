@@ -10,11 +10,12 @@ import {
   chordMembers,
   formatChordSymbol,
   keysForCircleLevel,
-  majorKeyByName,
   makeNote,
   mod,
   pitchName,
 } from './music'
+import { PROGRESSION_TEMPLATES } from './catalogs'
+import type { ProgressionTemplate } from './catalogs'
 import type {
   Accidental,
   ChordMember,
@@ -42,6 +43,8 @@ import type {
   SeventhChordSettings,
   ShellPattern,
   ShellVoicingQuestion,
+  SpreadTriadFillQuestion,
+  SpreadTriadPattern,
   TriadFillQuestion,
   TriadIdentity,
   TriadSettings,
@@ -53,6 +56,12 @@ export const AUDIO_MIN_MIDI = 55 // G3
 export const AUDIO_MAX_MIDI = 77 // F5
 export const INTERVAL_LOWER_MIN_MIDI = 59 // B3
 export const INTERVAL_LOWER_MAX_MIDI = 65 // F4
+
+export const SPREAD_TRIAD_PATTERNS: Array<{ id: SpreadTriadPattern; order: [number, number, number] }> = [
+  { id: 'R53', order: [0, 2, 1] },
+  { id: '3R5', order: [1, 0, 2] },
+  { id: '53R', order: [2, 1, 0] },
+]
 
 export const DROP2_PATTERNS: Array<{ id: Drop2Pattern; order: [number, number, number, number] }> = [
   { id: '5R37', order: [2, 0, 1, 3] },
@@ -66,22 +75,8 @@ export const SHELL_PATTERNS: Array<{ id: ShellPattern; order: [number, number, n
   { id: 'R73', order: [0, 3, 1] },
 ]
 
-export interface ProgressionTemplate {
-  id: string
-  degrees: [ScaleDegree, ScaleDegree, ScaleDegree, ScaleDegree]
-}
-
-export const PROGRESSION_TEMPLATES: ProgressionTemplate[] = [
-  { id: 'pop-1564', degrees: [1, 5, 6, 4] },
-  { id: 'pop-1645', degrees: [1, 6, 4, 5] },
-  { id: 'pop-6415', degrees: [6, 4, 1, 5] },
-  { id: 'cadence-1451', degrees: [1, 4, 5, 1] },
-  { id: 'cadence-1251', degrees: [1, 2, 5, 1] },
-  { id: 'cadence-2511', degrees: [2, 5, 1, 1] },
-  { id: 'lift-1345', degrees: [1, 3, 4, 5] },
-  { id: 'circle-3625', degrees: [3, 6, 2, 5] },
-  { id: 'leading-1271', degrees: [1, 2, 7, 1] },
-]
+export { PROGRESSION_TEMPLATES }
+export type { ProgressionTemplate }
 
 export function secureRandom(): number {
   const cryptoApi = globalThis.crypto
@@ -127,6 +122,14 @@ export function shuffle<T>(values: T[], random: RandomSource = secureRandom): T[
   return result
 }
 
+function isTrainableInterval(identity: IntervalIdentity): boolean {
+  if (identity.degree === 2 && identity.quality === 'augmented') return false
+  if (identity.degree === 3 && (identity.quality === 'diminished' || identity.quality === 'augmented')) return false
+  if (identity.degree === 4 && identity.quality === 'diminished') return false
+  if (identity.degree === 6 && (identity.quality === 'diminished' || identity.quality === 'augmented')) return false
+  return !(identity.degree === 7 && identity.quality === 'augmented')
+}
+
 function writtenNotes(accidentals: Accidental[]): NoteSpelling[] {
   const notes: NoteSpelling[] = []
   for (let octave = 3; octave <= 5; octave += 1) {
@@ -149,7 +152,7 @@ function intervalCandidates(settings: IntervalSettings): Array<{ lower: NoteSpel
       if (upper.midi <= lower.midi) continue
       try {
         const answer = analyzeInterval(lower, upper)
-        if (settings.degrees.includes(answer.degree)) candidates.push({ lower, upper, answer })
+        if (settings.degrees.includes(answer.degree) && isTrainableInterval(answer)) candidates.push({ lower, upper, answer })
       } catch {
         // Reject unisons, octaves, compound qualities, and double-altered relationships.
       }
@@ -162,6 +165,7 @@ export function intervalOptionsFor(degrees: IntervalSettings['degrees'], difficu
   const basicLabels = new Set(['小二度', '大二度', '小三度', '大三度', '纯四度', '增四度', '减五度', '纯五度', '小六度', '大六度', '小七度', '大七度'])
   return ALL_INTERVAL_IDENTITIES
     .filter((identity) => degrees.includes(identity.degree))
+    .filter(isTrainableInterval)
     .filter((identity) => difficulty === 'advanced' || basicLabels.has(identity.label))
 }
 
@@ -181,6 +185,14 @@ export function createIntervalExample(identity: IntervalIdentity): [NoteSpelling
   return createIntervalAudition(makeNote('C', 0, 4), identity)
 }
 
+export function createScaleDegreeAudition(question: ScaleDegreeQuestion, degree: ScaleDegree): NoteSpelling {
+  const pitch = question.key.notes[degree - 1]
+  return [question.note.octave - 1, question.note.octave, question.note.octave + 1]
+    .map((octave) => makeNote(pitch.letter, pitch.accidental, octave))
+    .filter((note) => note.midi >= AUDIO_MIN_MIDI && note.midi <= AUDIO_MAX_MIDI)
+    .sort((left, right) => Math.abs(left.midi - question.note.midi) - Math.abs(right.midi - question.note.midi))[0]
+}
+
 function intervalQuestionIdentity(lower: NoteSpelling, upper: NoteSpelling): string {
   return `interval:${lower.displayName}:${upper.displayName}`
 }
@@ -198,12 +210,12 @@ export function createIntervalQuestion(settings: IntervalSettings, random: Rando
   }
 }
 
-export function createVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpelling], inversion: Inversion): [NoteSpelling, NoteSpelling, NoteSpelling] {
-  const order = [tones[inversion], tones[(inversion + 1) % 3], tones[(inversion + 2) % 3]]
+function createOrderedTriadVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpelling], order: [number, number, number]): [NoteSpelling, NoteSpelling, NoteSpelling] {
+  const orderedTones = order.map((index) => tones[index])
   const candidates: NoteSpelling[][] = []
   for (let startingOctave = 3; startingOctave <= 5; startingOctave += 1) {
     const voiced: NoteSpelling[] = []
-    for (const pitch of order) {
+    for (const pitch of orderedTones) {
       let octave = startingOctave
       let note = makeNote(pitch.letter, pitch.accidental, octave)
       while (voiced.length && note.midi <= voiced[voiced.length - 1].midi) {
@@ -223,6 +235,16 @@ export function createVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpellin
   return voiced as [NoteSpelling, NoteSpelling, NoteSpelling]
 }
 
+export function createVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpelling], inversion: Inversion): [NoteSpelling, NoteSpelling, NoteSpelling] {
+  return createOrderedTriadVoicing(tones, [inversion, (inversion + 1) % 3, (inversion + 2) % 3])
+}
+
+export function createSpreadVoicing(tones: [PitchSpelling, PitchSpelling, PitchSpelling], pattern: SpreadTriadPattern): [NoteSpelling, NoteSpelling, NoteSpelling] {
+  const definition = SPREAD_TRIAD_PATTERNS.find((item) => item.id === pattern)
+  if (!definition) throw new Error(`Unknown spread-triad pattern: ${pattern}`)
+  return createOrderedTriadVoicing(tones, definition.order)
+}
+
 function triadsForSpellingLevel(settings: TriadSettings): TriadIdentity[] {
   const unique = new Map<string, TriadIdentity>()
   for (const key of keysForCircleLevel(settings.spellingLevel)) {
@@ -234,8 +256,10 @@ function triadsForSpellingLevel(settings: TriadSettings): TriadIdentity[] {
   return [...unique.values()]
 }
 
-export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = secureRandom, excludedIdentity = ''): TriadFillQuestion {
-  const candidates = triadsForSpellingLevel(settings).flatMap((triad) => ([0, 1, 2] as Inversion[]).map((inversion) => ({ triad, inversion })))
+export function createTriadFillQuestion(settings: TriadSettings, random: RandomSource = secureRandom, excludedIdentity = '', forcedInversion?: Inversion, forcedQuality?: TriadIdentity['quality']): TriadFillQuestion {
+  const inversions = forcedInversion === undefined ? [0, 1, 2] as Inversion[] : [forcedInversion]
+  const triads = triadsForSpellingLevel(settings).filter((triad) => !forcedQuality || triad.quality === forcedQuality)
+  const candidates = triads.flatMap((triad) => inversions.map((inversion) => ({ triad, inversion })))
   const alternatives = candidates.filter(({ triad, inversion }) => `triad-fill:${triad.symbol}:${inversion}` !== excludedIdentity)
   const { triad, inversion } = pickOne(alternatives.length ? alternatives : candidates, random)
   const notes = createVoicing(triad.tones, inversion)
@@ -244,6 +268,28 @@ export function createTriadFillQuestion(settings: TriadSettings, random: RandomS
     id: randomId('triad-fill'),
     triad,
     inversion,
+    notes,
+    answers: notes.map((note) => pitchName(note)) as [string, string, string],
+  }
+}
+
+export function createSpreadTriadFillQuestion(settings: TriadSettings, random: RandomSource = secureRandom, excludedIdentity = '', forcedPattern?: SpreadTriadPattern, forcedQuality?: TriadIdentity['quality']): SpreadTriadFillQuestion {
+  const patterns = forcedPattern ? [forcedPattern] : SPREAD_TRIAD_PATTERNS.map((item) => item.id)
+  const triads = triadsForSpellingLevel(settings).filter((triad) => !forcedQuality || triad.quality === forcedQuality)
+  const candidates = triads.flatMap((triad) => patterns.flatMap((pattern) => {
+    try {
+      return [{ triad, pattern, notes: createSpreadVoicing(triad.tones, pattern) }]
+    } catch {
+      return []
+    }
+  }))
+  const alternatives = candidates.filter(({ triad, pattern }) => `spread-triad-fill:${triad.symbol}:${pattern}` !== excludedIdentity)
+  const { triad, pattern, notes } = pickOne(alternatives.length ? alternatives : candidates, random)
+  return {
+    kind: 'spread-triad-fill',
+    id: randomId('spread-triad-fill'),
+    triad,
+    pattern,
     notes,
     answers: notes.map((note) => pitchName(note)) as [string, string, string],
   }
@@ -314,7 +360,7 @@ export function createSeventhVoicing(chord: SeventhChordIdentity, pattern: Drop2
   return { answer: order.map((index) => members[index]), notes }
 }
 
-function createSeventhVoicingQuestion(
+export function createSeventhVoicingQuestion(
   kind: 'drop2-voicing' | 'shell-voicing',
   settings: SeventhChordSettings,
   quality: SeventhChordSettings['qualities'][number],
@@ -352,30 +398,6 @@ function createSeventhVoicingQuestion(
     answer: answer as ShellVoicingQuestion['answer'],
     notes: notes as ShellVoicingQuestion['notes'],
   }
-}
-
-function balancedValues<T>(values: T[], count: number, random: RandomSource): T[] {
-  if (!values.length) throw new Error('Cannot balance an empty value list.')
-  const result: T[] = []
-  while (result.length < count) result.push(...shuffle(values, random))
-  return result.slice(0, count)
-}
-
-function createSeventhSession(kind: 'drop2-voicing' | 'shell-voicing', settings: SeventhChordSettings, count: number, random: RandomSource, previousIdentity: string): Array<Drop2VoicingQuestion | ShellVoicingQuestion> {
-  if (!settings.qualities.length) throw new Error('请至少选择一种七和弦性质。')
-  const patterns = kind === 'drop2-voicing'
-    ? DROP2_PATTERNS.map((item) => item.id)
-    : SHELL_PATTERNS.map((item) => item.id)
-  const qualities = balancedValues(settings.qualities, count, random)
-  const balancedPatterns = balancedValues(patterns, count, random)
-  const questions: Array<Drop2VoicingQuestion | ShellVoicingQuestion> = []
-  let previous = previousIdentity
-  for (let index = 0; index < count; index += 1) {
-    const question = createSeventhVoicingQuestion(kind, settings, qualities[index], balancedPatterns[index], random, previous)
-    questions.push(question)
-    previous = questionIdentity(question)
-  }
-  return arrangeSessionQuestions(questions, '', previousIdentity, random)
 }
 
 function uniquePermutations<T>(values: T[]): T[][] {
@@ -563,12 +585,6 @@ export function createProgressionQuestion(key: MajorKey, template: ProgressionTe
   }
 }
 
-function directionsFor(direction: KeyPracticeDirection, random: RandomSource): Array<Exclude<KeyPracticeDirection, 'mixed'>> {
-  return direction === 'mixed'
-    ? shuffle([...Array(5).fill('forward'), ...Array(5).fill('reverse')] as Array<Exclude<KeyPracticeDirection, 'mixed'>>, random)
-    : Array(10).fill(direction) as Array<Exclude<KeyPracticeDirection, 'mixed'>>
-}
-
 function hasSafeAdjacency(questions: PracticeQuestion[], previousIdentity: string): boolean {
   let previous = previousIdentity
   for (const question of questions) {
@@ -608,40 +624,6 @@ export function arrangeSessionQuestions<T extends PracticeQuestion>(questions: T
   throw new Error('Unable to create a new non-repeating question order.')
 }
 
-function createScaleSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string, previousIdentity: string): ScaleDegreeQuestion[] {
-  const key = majorKeyByName(settings.keyName)
-  const degrees = [...([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[]), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random), pickOne([1, 2, 3, 4, 5, 6, 7] as ScaleDegree[], random)]
-  const directions = directionsFor(settings.scaleDirection, random)
-  const questions = degrees.map((degree, index) => createScaleDegreeQuestion(key, degree, directions[index]))
-  return arrangeSessionQuestions(questions, previousSignature, previousIdentity, random)
-}
-
-function createProgressionSession(settings: KeyPracticeSettings, random: RandomSource, previousSignature: string, previousIdentity: string): ProgressionQuestion[] {
-  const key = majorKeyByName(settings.keyName)
-  const templates = [...PROGRESSION_TEMPLATES, pickOne(PROGRESSION_TEMPLATES, random)]
-  const directions = directionsFor(settings.progressionDirection, random)
-  const questions = templates.map((template, index) => createProgressionQuestion(key, template, directions[index], settings.voicingMode))
-  return arrangeSessionQuestions(questions, previousSignature, previousIdentity, random)
-}
-
-export function createSession(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, seventhSettings: SeventhChordSettings, keySettings: KeyPracticeSettings, count = 10, random: RandomSource = secureRandom, previousSignature = '', previousIdentity = ''): PracticeQuestion[] {
-  if (kind === 'scale-degree') return createScaleSession(keySettings, random, previousSignature, previousIdentity)
-  if (kind === 'progression') return createProgressionSession(keySettings, random, previousSignature, previousIdentity)
-  if (kind === 'drop2-voicing' || kind === 'shell-voicing') return createSeventhSession(kind, seventhSettings, count, random, previousIdentity)
-  const questions: PracticeQuestion[] = []
-  let previous = previousIdentity
-  for (let index = 0; index < count; index += 1) {
-    const question = kind === 'interval'
-      ? createIntervalQuestion(intervalSettings, random, previous)
-      : kind === 'triad-fill'
-        ? createTriadFillQuestion(triadSettings, random, previous)
-        : createChordToneQuestion(triadSettings, random, previous)
-    questions.push(question)
-    previous = questionIdentity(question)
-  }
-  return questions
-}
-
 export function sessionSignature(questions: PracticeQuestion[]): string {
   return questions.map((question) => {
     if (question.kind === 'scale-degree') return `${question.degree}:${question.direction}`
@@ -653,6 +635,7 @@ export function sessionSignature(questions: PracticeQuestion[]): string {
 export function questionIdentity(question: PracticeQuestion): string {
   if (question.kind === 'interval') return intervalQuestionIdentity(question.lower, question.upper)
   if (question.kind === 'triad-fill') return `triad-fill:${question.triad.symbol}:${question.inversion}`
+  if (question.kind === 'spread-triad-fill') return `spread-triad-fill:${question.triad.symbol}:${question.pattern}`
   if (question.kind === 'chord-tone') return `chord-tone:${question.triad.symbol}:${question.target}`
   if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') return `${question.kind}:${question.chord.symbol}:${question.pattern}`
   if (question.kind === 'scale-degree') return `scale-degree:${question.key.name}:${question.degree}:${question.direction}`
@@ -666,7 +649,7 @@ export function coverageOrderKey(kind: 'scale-degree' | 'progression', settings:
 
 export function practiceSequenceKey(kind: PracticeKind, intervalSettings: IntervalSettings, triadSettings: TriadSettings, seventhSettings: SeventhChordSettings, keySettings: KeyPracticeSettings): string {
   if (kind === 'interval') return `interval:${[...intervalSettings.degrees].sort().join(',')}:${intervalSettings.difficulty}`
-  if (kind === 'triad-fill' || kind === 'chord-tone') return `${kind}:${[...triadSettings.qualities].sort().join(',')}:${triadSettings.spellingLevel}`
+  if (kind === 'triad-fill' || kind === 'spread-triad-fill' || kind === 'chord-tone') return `${kind}:${[...triadSettings.qualities].sort().join(',')}:${triadSettings.spellingLevel}`
   if (kind === 'drop2-voicing' || kind === 'shell-voicing') return `${kind}:${[...seventhSettings.qualities].sort().join(',')}`
   if (kind === 'scale-degree') return `${coverageOrderKey(kind, keySettings)}`
   return coverageOrderKey(kind, keySettings)
@@ -675,17 +658,19 @@ export function practiceSequenceKey(kind: PracticeKind, intervalSettings: Interv
 export function questionStorageKey(question: PracticeQuestion): string {
   if (question.kind === 'interval') return `interval:${question.lower.displayName}:${question.upper.displayName}`
   if (question.kind === 'triad-fill') return `triad-fill:${question.triad.symbol}:${question.inversion}`
+  if (question.kind === 'spread-triad-fill') return `spread-triad-fill:${question.triad.symbol}:${question.pattern}`
   if (question.kind === 'chord-tone') return `chord-tone:${question.triad.symbol}:${question.target}`
   if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') return `${question.kind}:${question.chord.symbol}:${question.pattern}`
   if (question.kind === 'scale-degree') return `scale-degree:${question.key.name}:${question.degree}:${question.direction}`
   return `progression:${question.key.name}:${question.templateId}:${question.direction}:${question.voicingMode}`
 }
 
-export function questionSummary(question: PracticeQuestion, notation: ChordNotation = 'standard'): string {
+export function questionSummary(question: PracticeQuestion, notation: ChordNotation = 'text'): string {
   if (question.kind === 'interval') return `${question.lower.displayName} — ${question.upper.displayName}`
   if (question.kind === 'triad-fill') return `${question.triad.label} · ${INVERSION_TEXT[question.inversion]}`
+  if (question.kind === 'spread-triad-fill') return `${question.triad.label} · Spread ${question.pattern}`
   if (question.kind === 'chord-tone') return `${question.triad.label} · ${question.target === 'third' ? '三音' : '五音'}`
   if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') return `${formatChordSymbol(question.chord, notation)} · ${question.pattern}`
-  if (question.kind === 'scale-degree') return `${question.key.name} 大调 · ${question.degree} 级`
-  return `${question.key.name} 大调 · ${question.chords.map((chord) => chord.roman).join('–')} · ${question.voicingMode}`
+  if (question.kind === 'scale-degree') return `${pitchName(question.key.tonic)} 大调 · ${question.degree} 级`
+  return `${pitchName(question.key.tonic)} 大调 · ${question.chords.map((chord) => chord.roman).join('–')} · ${question.voicingMode}`
 }
