@@ -72,10 +72,10 @@ const DEGREE_NAMES: Record<IntervalDegree, string> = {
 }
 
 const KIND_NAMES: Record<PracticeKind, string> = {
-  interval: '音程判断',
-  'triad-fill': 'Closed Triad 音名填空',
-  'spread-triad-fill': 'Spread Triad 音名填空',
-  'chord-tone': '三音·五音',
+  interval: '音程',
+  'triad-fill': '密集三和弦音名',
+  'spread-triad-fill': '开放三和弦音名',
+  'chord-tone': '三音和五音',
   'drop2-voicing': 'Drop 2 七和弦',
   'shell-voicing': 'Shell 七和弦',
   'scale-degree': '音名与音级',
@@ -426,7 +426,7 @@ function App() {
         <button type="button" className="brand" onClick={goHome} aria-label="返回首页"><span className="brand-mark">♫</span><span>音程、和弦与调训练</span></button>
         <div className="topbar-meta">
           <GlobalInstrumentSwitch instrument={settings.instrument} source={audioSource} onChange={changeInstrument} />
-          <button type="button" className="text-button notation-toggle chord-notation-toggle" aria-label={`和弦标记：${settings.chordNotation === 'symbol' ? '符号 C△' : '文字 Cmaj7'}`} aria-pressed={settings.chordNotation === 'symbol'} onClick={() => setSettings((current) => ({ ...current, chordNotation: current.chordNotation === 'symbol' ? 'text' : 'symbol' }))}>和弦 <ChordSymbol chord={{ root: parsePitchName('C'), quality: 'major7' }} notation={settings.chordNotation} /></button>
+          <button type="button" className="text-button notation-toggle chord-notation-toggle" aria-label={`和弦记法：${settings.chordNotation === 'symbol' ? '符号 C△' : '文字 Cmaj7'}`} title="切换和弦记法" aria-pressed={settings.chordNotation === 'symbol'} onClick={() => setSettings((current) => ({ ...current, chordNotation: current.chordNotation === 'symbol' ? 'text' : 'symbol' }))}>记法 <ChordSymbol chord={{ root: parsePitchName('C'), quality: 'major7' }} notation={settings.chordNotation} /></button>
           <button type="button" className="text-button" onClick={() => setView('wrongs')}>错题 {wrongItems.length}</button>
         </div>
       </header>
@@ -444,10 +444,10 @@ function App() {
 
         {view === 'key' && <section className="panel navigation-panel">
           <button type="button" className="back-button" onClick={() => setView('home')}>← 返回首页</button>
-          <div className="eyebrow">KEYS</div><h1>调模块</h1><p className="setup-copy">每轮只练一个大调；十题完整覆盖后再加密乱序。</p>
+          <div className="eyebrow">KEYS</div><h1>调内练习</h1><p className="setup-copy">选择一个大调，在调内练习音名、音级和和弦进行。</p>
           <div className="choice-grid two">
-            <button type="button" className="choice" onClick={() => { setKind('scale-degree'); setView('setup-key') }}><strong>音名与音级</strong><span>识别指定大调中的级数与正确拼写。</span></button>
-            <button type="button" className="choice" onClick={() => { setKind('progression'); setView('setup-key') }}><strong>和弦进行与级数</strong><span>在一个调内互译四小节进行与罗马数字。</span></button>
+            <button type="button" className="choice" onClick={() => { setKind('scale-degree'); setView('setup-key') }}><strong>音名与音级</strong><span>在音名和音级之间转换。</span></button>
+            <button type="button" className="choice" onClick={() => { setKind('progression'); setView('setup-key') }}><strong>和弦进行与级数</strong><span>在和弦进行和调内级数之间转换。</span></button>
           </div>
         </section>}
 
@@ -474,36 +474,36 @@ function App() {
 
         {view === 'summary' && <section className="summary-view panel">
           <div className="summary-ring" style={{ '--score': `${questions.length ? Math.round((correctCount / questions.length) * 100) : 0}%` } as React.CSSProperties}><strong>{questions.length ? Math.round((correctCount / questions.length) * 100) : 0}%</strong><span>正确率</span></div>
-          <div className="eyebrow">SESSION COMPLETE</div><h1>这一轮完成了</h1><p>{correctCount} / {questions.length} 题正确 · 用时 {elapsedSeconds} 秒 · {sessionMistakes.length} 类错题</p>
+          <div className="eyebrow">SESSION COMPLETE</div><h1>本轮完成</h1><p>正确 {correctCount} / {questions.length} · 用时 {elapsedSeconds} 秒 · {sessionMistakes.length} 道错题</p>
           <div className="summary-actions"><button type="button" className="primary-button" onClick={() => void beginSession(kind)}>再来 10 题</button>{sessionMistakes.length > 0 && <button type="button" className="secondary-button" onClick={() => void beginSession(kind, sessionMistakes)}>只练本轮错题</button>}<button type="button" className="text-button" onClick={goHome}>返回首页</button></div>
         </section>}
 
         {view === 'wrongs' && <section className="wrong-view panel">
           <button type="button" className="back-button" onClick={() => setView('home')}>← 返回首页</button><div className="eyebrow">REVIEW</div><h1>错题复习</h1>
           <div className="chip-row">{(['all', 'interval', 'triad-fill', 'spread-triad-fill', 'chord-tone', 'drop2-voicing', 'shell-voicing', 'scale-degree', 'progression'] as const).map((filter) => <button type="button" key={filter} className={wrongFilter === filter ? 'chip selected' : 'chip'} onClick={() => setWrongFilter(filter)}>{filter === 'all' ? '全部' : KIND_NAMES[filter]}</button>)}</div>
-          {filteredWrongItems.length ? <><div className="wrong-list">{filteredWrongItems.map((item) => <div className="wrong-row" key={item.key}><span className="wrong-kind">{KIND_NAMES[item.kind]}</span><strong><QuestionSummary question={item.question} notation={settings.chordNotation} /></strong><small>累计答错 {item.wrongCount} 次</small></div>)}</div><button type="button" className="primary-button" disabled={starting} onClick={() => void beginSession(filteredWrongItems[0].kind, filteredWrongItems.slice(0, 10).map((item) => item.question))}>{starting ? '正在准备音源…' : `复习这 ${Math.min(10, filteredWrongItems.length)} 题`}</button></> : <div className="empty-state"><span>✓</span><h2>这里暂时没有错题</h2><p>答错的题会按练习类型保存在这里。</p></div>}
+          {filteredWrongItems.length ? <><div className="wrong-list">{filteredWrongItems.map((item) => <div className="wrong-row" key={item.key}><span className="wrong-kind">{KIND_NAMES[item.kind]}</span><strong><QuestionSummary question={item.question} notation={settings.chordNotation} /></strong><small>累计答错 {item.wrongCount} 次</small></div>)}</div><button type="button" className="primary-button" disabled={starting} onClick={() => void beginSession(filteredWrongItems[0].kind, filteredWrongItems.slice(0, 10).map((item) => item.question))}>{starting ? '正在准备音源…' : `复习这 ${Math.min(10, filteredWrongItems.length)} 道题`}</button></> : <div className="empty-state"><span>✓</span><h2>还没有错题</h2><p>答错的题会自动保存在这里。</p></div>}
         </section>}
       </main>
-      <footer><span>所有练习数据只保存在当前设备</span><details className="audio-credits"><summary>音源与许可</summary><p><strong>钢琴：</strong>Salamander Grand Piano V3，CC BY 3.0；使用原始 48 kHz / 24-bit 第 10 力度层转换采样。</p><p><strong>古典吉他：</strong>Quartertone Yamaha Classical Guitar（Tone.js Instruments），CC BY 3.0；使用 G3–F5 范围的整理版采样。</p><p><a href="https://github.com/sfzinstruments/SalamanderGrandPiano" target="_blank" rel="noreferrer">钢琴官方来源</a> · <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noreferrer">吉他与整理版来源</a> · <a href={`${import.meta.env.BASE_URL}audio/ATTRIBUTION.md`} target="_blank" rel="noreferrer">完整文件清单</a></p></details></footer>
+      <footer><span>练习数据仅保存在当前设备</span><details className="audio-credits"><summary>音源与许可</summary><p><strong>钢琴：</strong>Salamander Grand Piano V3，CC BY 3.0；使用原始 48 kHz / 24-bit 第 10 力度层转换采样。</p><p><strong>古典吉他：</strong>Quartertone Yamaha Classical Guitar（Tone.js Instruments），CC BY 3.0；使用 G3–F5 范围的整理版采样。</p><p><a href="https://github.com/sfzinstruments/SalamanderGrandPiano" target="_blank" rel="noreferrer">钢琴官方来源</a> · <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noreferrer">吉他与整理版来源</a> · <a href={`${import.meta.env.BASE_URL}audio/ATTRIBUTION.md`} target="_blank" rel="noreferrer">完整文件清单</a></p></details></footer>
     </div>
   )
 }
 
 function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
   return <section className="home-view">
-    <div className="hero-card"><div className="eyebrow">READ · HEAR · NAME</div><h1>看见音符，听见关系，<br />说出它的名字。</h1><p>每轮十题，把五线谱、音名拼写、和声与听觉连接起来。电脑与手机均可使用，安装后也能离线练习。</p><div className="lifetime-stats"><div><strong>{stats.sessions}</strong><span>完成轮次</span></div><div><strong>{stats.attempts}</strong><span>累计答题</span></div><div><strong>{stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0}%</strong><span>累计正确率</span></div></div></div>
+    <div className="hero-card"><div className="eyebrow">READ · HEAR · NAME</div><h1>看见音符，听见关系，<br />说出它的名字。</h1><p>每轮 10 题，结合五线谱、音名和听觉练习。支持手机、电脑和离线使用。</p><div className="lifetime-stats"><div><strong>{stats.sessions}</strong><span>完成轮次</span></div><div><strong>{stats.attempts}</strong><span>累计答题</span></div><div><strong>{stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0}%</strong><span>累计正确率</span></div></div></div>
     <div className="mode-grid three">
-      <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><span className="mode-number">01</span><span className="mode-icon">♬</span><h2>音程</h2><p>看两个音名与五线谱，判断完整音程，并用旋律或和声试听。</p><span className="mode-link">开始设置 →</span></button>
-      <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><span className="mode-number">02</span><span className="mode-icon"><TriadStackIcon /></span><h2>和弦</h2><p>练习 Closed 与 Spread 三和弦，以及 Shell、Drop 2 七和弦，并连接音名、排列和听觉。</p><span className="mode-link">进入和弦 →</span></button>
-      <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><span className="mode-number">03</span><span className="mode-icon">♮</span><h2>调</h2><p>在一个大调内练习音级、音名，以及和弦进行与级数互译。</p><span className="mode-link">进入调模块 →</span></button>
+      <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><span className="mode-number">01</span><span className="mode-icon">♬</span><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p><span className="mode-link">开始设置 →</span></button>
+      <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><span className="mode-number">02</span><span className="mode-icon"><TriadStackIcon /></span><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p><span className="mode-link">选择练习 →</span></button>
+      <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><span className="mode-number">03</span><span className="mode-icon">♮</span><h2>调</h2><p>在一个大调内练习音名、音级和和弦进行。</p><span className="mode-link">选择练习 →</span></button>
     </div>
-    <div className="install-card"><div><strong>安装到手机或电脑</strong><p>安装后可像应用一样从桌面打开，并离线使用。</p></div>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details><summary>查看安装方法</summary><p>Chrome / Edge：浏览器地址栏右侧选择“安装”。Android：Chrome 菜单选择“安装应用”。iPhone / iPad：Safari 的分享菜单选择“添加到主屏幕”。</p></details>}</div>
+    <div className="install-card"><div><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p></div>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details><summary>查看安装方法</summary><p>Chrome / Edge：点击地址栏右侧的“安装”。Android：Chrome 菜单选择“安装应用”。iPhone / iPad：Safari 的分享菜单选择“添加到主屏幕”。</p></details>}</div>
   </section>
 }
 
 function IntervalSetup({ settings, setSettings, starting, notice, onBack, onStart }: { settings: AppSettings; setSettings: React.Dispatch<React.SetStateAction<AppSettings>>; starting: boolean; notice: string; onBack: () => void; onStart: () => void }) {
   return <section className="setup-view panel"><button type="button" className="back-button" onClick={onBack}>← 返回首页</button><div className="eyebrow">INTERVALS</div><h1>设置音程练习</h1>
-    <fieldset><legend>选择音程度数 <small>可多选</small></legend><div className="chip-row">{([2, 3, 4, 5, 6, 7] as IntervalDegree[]).map((degree) => <button type="button" key={degree} className={settings.interval.degrees.includes(degree) ? 'chip selected' : 'chip'} onClick={() => setSettings((current) => ({ ...current, interval: { ...current.interval, degrees: toggleValue(current.interval.degrees, degree) } }))}>{DEGREE_NAMES[degree]}</button>)}</div></fieldset>
+    <fieldset><legend>练习音程度数 <small>可多选</small></legend><div className="chip-row">{([2, 3, 4, 5, 6, 7] as IntervalDegree[]).map((degree) => <button type="button" key={degree} className={settings.interval.degrees.includes(degree) ? 'chip selected' : 'chip'} onClick={() => setSettings((current) => ({ ...current, interval: { ...current.interval, degrees: toggleValue(current.interval.degrees, degree) } }))}>{DEGREE_NAMES[degree]}</button>)}</div></fieldset>
     <fieldset><legend>音名难度</legend><div className="choice-grid two"><button type="button" className={settings.interval.difficulty === 'basic' ? 'choice selected' : 'choice'} onClick={() => setSettings((current) => ({ ...current, interval: { ...current.interval, difficulty: 'basic' } }))}><strong>基础</strong><span>仅自然音</span></button><button type="button" className={settings.interval.difficulty === 'advanced' ? 'choice selected' : 'choice'} onClick={() => setSettings((current) => ({ ...current, interval: { ...current.interval, difficulty: 'advanced' } }))}><strong>进阶</strong><span>加入单升、单降</span></button></div></fieldset>
     <button type="button" className="primary-button" disabled={!settings.interval.degrees.length || starting} onClick={onStart}>{starting ? '正在准备音源…' : '开始 10 题练习'}</button>{notice && <p className="notice" role="alert">{notice}</p>}
   </section>
@@ -513,10 +513,10 @@ function KeySetup({ kind, settings, setSettings, starting, notice, onBack, onSta
   const isScale = kind === 'scale-degree'
   const direction = isScale ? settings.keyPractice.scaleDirection : settings.keyPractice.progressionDirection
   const updateDirection = (value: KeyPracticeDirection) => setSettings((current) => ({ ...current, keyPractice: { ...current.keyPractice, [isScale ? 'scaleDirection' : 'progressionDirection']: value } }))
-  return <section className="setup-view panel"><button type="button" className="back-button" onClick={onBack}>← 返回调模块</button><div className="eyebrow">KEY TRAINING</div><h1>{isScale ? '设置音名与音级' : '设置和弦进行与级数'}</h1>
-    <fieldset><legend>本轮大调 <small>一次只练一个调</small></legend><div className="key-grid">{MAJOR_KEYS.map((key) => <button type="button" key={key.name} className={settings.keyPractice.keyName === key.name ? 'chip selected' : 'chip'} onClick={() => setSettings((current) => ({ ...current, keyPractice: { ...current.keyPractice, keyName: key.name } }))}><PitchName value={key.tonic} /> 大调</button>)}</div></fieldset>
-    <fieldset><legend>题目方向</legend><div className="segmented"><button type="button" className={direction === 'forward' ? 'selected' : ''} onClick={() => updateDirection('forward')}>正向</button><button type="button" className={direction === 'reverse' ? 'selected' : ''} onClick={() => updateDirection('reverse')}>反向</button><button type="button" className={direction === 'mixed' ? 'selected' : ''} onClick={() => updateDirection('mixed')}>混合 5 / 5</button></div></fieldset>
-    {isScale ? <p className="setup-copy">十题保证 1–7 级各出现一次，另外三题复习；顺序每轮不同。</p> : <><fieldset><legend>进行 Voicing</legend><div className="progression-voicing-grid">{([['three', '三声部', '三和弦'], ['four', '四声部', '三和弦'], ['shell', 'Shell', '七和弦'], ['drop2', 'Drop 2', '七和弦']] as const).map(([mode, title, family]) => <button type="button" key={mode} className={settings.keyPractice.voicingMode === mode ? 'choice selected' : 'choice'} onClick={() => setSettings((current) => ({ ...current, keyPractice: { ...current.keyPractice, voicingMode: mode } }))}><strong>{title}</strong><span>{family}</span></button>)}</div></fieldset><p className="setup-copy">十题覆盖九条常见进行模板；Shell 与 Drop 2 使用调内七和弦和自动平滑连接。</p></>}
+  return <section className="setup-view panel"><button type="button" className="back-button" onClick={onBack}>← 返回调内练习</button><div className="eyebrow">KEY TRAINING</div><h1>{isScale ? '设置音名与音级' : '设置和弦进行与级数'}</h1>
+    <fieldset><legend>本轮大调</legend><div className="key-grid">{MAJOR_KEYS.map((key) => <button type="button" key={key.name} className={settings.keyPractice.keyName === key.name ? 'chip selected' : 'chip'} onClick={() => setSettings((current) => ({ ...current, keyPractice: { ...current.keyPractice, keyName: key.name } }))}><PitchName value={key.tonic} /> 大调</button>)}</div></fieldset>
+    <fieldset><legend>出题方式</legend><div className="segmented"><button type="button" className={direction === 'forward' ? 'selected' : ''} onClick={() => updateDirection('forward')}>音级 → 音名</button><button type="button" className={direction === 'reverse' ? 'selected' : ''} onClick={() => updateDirection('reverse')}>音名 → 音级</button><button type="button" className={direction === 'mixed' ? 'selected' : ''} onClick={() => updateDirection('mixed')}>两种各 5 题</button></div></fieldset>
+    {isScale ? <p className="setup-copy">10 题中每个音级至少出现一次；其余 3 题随机复习。</p> : <><fieldset><legend>和弦排列</legend><div className="progression-voicing-grid">{([['three', '三声部', '三和弦'], ['four', '四声部', '三和弦'], ['shell', 'Shell', '七和弦'], ['drop2', 'Drop 2', '七和弦']] as const).map(([mode, title, family]) => <button type="button" key={mode} className={settings.keyPractice.voicingMode === mode ? 'choice selected' : 'choice'} onClick={() => setSettings((current) => ({ ...current, keyPractice: { ...current.keyPractice, voicingMode: mode } }))}><strong>{title}</strong><span>{family}</span></button>)}</div></fieldset><p className="setup-copy">10 题覆盖 9 种常见和弦进行；Shell 和 Drop 2 使用调内七和弦。</p></>}
     <button type="button" className="primary-button" disabled={starting} onClick={onStart}>{starting ? '正在准备音源…' : '开始 10 题练习'}</button>{notice && <p className="notice" role="alert">{notice}</p>}
   </section>
 }

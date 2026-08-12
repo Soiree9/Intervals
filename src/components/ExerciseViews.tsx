@@ -3,7 +3,6 @@ import {
   INVERSION_TEXT,
   pitchName,
   triadFormula,
-  triadSolfege,
 } from '../domain/music'
 import { buildStandaloneScore } from '../domain/notation'
 import type { AppSettings, IntervalIdentity, IntervalQuestion, IntervalSettings, NoteSpelling, PitchSpelling, PracticeQuestion } from '../domain/types'
@@ -68,26 +67,25 @@ export function IntervalExercise({ question, settings, feedback, preview, onAnsw
   }
 
   return <>
-    <QuestionHeading eyebrow="INTERVAL READING" title={<><PitchName value={visibleNoteName(question.lower, settings.showOctaves)} /> – <PitchName value={visibleNoteName(question.upper, settings.showOctaves)} /></>} subtitle="观察音名和谱面，选择它们构成的完整音程。" />
+    <QuestionHeading eyebrow="音程判断" title={<><PitchName value={visibleNoteName(question.lower, settings.showOctaves)} /> – <PitchName value={visibleNoteName(question.upper, settings.showOctaves)} /></>} subtitle="看音名和五线谱，判断完整音程。" />
     <MusicScore score={buildStandaloneScore([question.lower, question.upper])} label="音程五线谱" />
-    <PlayWithInstrument label="▶ 重新播放" onPlay={onPlay}><div className="interval-control-groups"><div className="control-group"><span>播放</span><div className="segmented compact"><button type="button" aria-pressed={settings.playback === 'melodic'} className={settings.playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" aria-pressed={settings.playback === 'harmonic'} className={settings.playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></div><div className="control-group"><span>音名</span><div className="segmented compact"><button type="button" aria-pressed={!settings.showOctaves} className={!settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(false)}>C</button><button type="button" aria-pressed={settings.showOctaves} className={settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(true)}>C4</button></div></div></div></PlayWithInstrument>
+    <PlayWithInstrument label="▶ 重播" onPlay={onPlay}><div className="interval-control-groups"><div className="control-group"><span>播放</span><div className="segmented compact"><button type="button" aria-pressed={settings.playback === 'melodic'} className={settings.playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" aria-pressed={settings.playback === 'harmonic'} className={settings.playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></div><div className="control-group"><span>音名</span><div className="segmented compact"><button type="button" aria-pressed={!settings.showOctaves} className={!settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(false)}>C</button><button type="button" aria-pressed={settings.showOctaves} className={settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(true)}>C4</button></div></div></div></PlayWithInstrument>
     <div className="answer-grid" data-answer-scope={scopeId} onKeyDown={handleKeyDown}>{question.options.map((option, index) => {
       const state = !feedback ? '' : option.label === question.answer.label ? 'correct' : option.label === feedback.selected ? 'wrong' : 'muted'
       return <button type="button" key={option.label} ref={(element) => { optionRefs.current[index] = element }} data-quiz-answer-control="true" tabIndex={!feedback && activeOption === index ? 0 : -1} className={`answer-option ${state} ${preview?.option.label === option.label ? 'exploring' : ''}`} onClick={() => feedback ? onExplore(option) : onAnswer(option.label)}>{option.label}</button>
     })}</div>
-    {!feedback && <p className="note-shortcut-hint">键盘：方向键选择 · Enter 提交 · 空格重播</p>}
-    {feedback && <div className="interval-preview" aria-live="polite">{preview ? <><strong>{preview.option.label}</strong><span><PitchName value={visibleNoteName(preview.notes[0], settings.showOctaves)} /> – <PitchName value={visibleNoteName(preview.notes[1], settings.showOctaves)} /></span><small>固定本题低音，只改变高音试听。</small></> : <span>答题后可点击任一选项，试听固定低音下的该音程。</span>}</div>}
+    {feedback && <div className="interval-preview" aria-live="polite">{preview ? <><strong>{preview.option.label}</strong><span><PitchName value={visibleNoteName(preview.notes[0], settings.showOctaves)} /> – <PitchName value={visibleNoteName(preview.notes[1], settings.showOctaves)} /></span><small>固定本题低音，只试听不同高音。</small></> : <span>答题后可点击任一选项试听。</span>}</div>}
   </>
 }
 
 export function TriadFillExercise({ question, notation, playback, feedback, noteValues, activeSlot, onActiveSlotChange, onChange, onPlay, onPlaybackChange, onSubmit, onValuePlay }: { question: Extract<PracticeQuestion, { kind: 'triad-fill' | 'spread-triad-fill' }>; notation: AppSettings['chordNotation']; playback: AppSettings['triad']['playback']; feedback: AnswerFeedback | null; noteValues: string[]; activeSlot: number; onActiveSlotChange: (index: number) => void; onChange: (values: string[]) => void; onPlay: () => void; onPlaybackChange: (playback: AppSettings['triad']['playback']) => void; onSubmit: () => void; onValuePlay: (value: string, index: number) => void }) {
   const spread = question.kind === 'spread-triad-fill'
   return <>
-    <QuestionHeading eyebrow={spread ? 'SPREAD TRIAD SPELLING' : 'CLOSED TRIAD SPELLING'} title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={spread ? '听一种 Spread Triad 排列，按实际低到高填写三个音名。' : '听原位或转位，按实际低到高填写三个音名。'} />
+    <QuestionHeading eyebrow={spread ? '开放三和弦' : '密集三和弦'} title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={spread ? '听排列，从低到高写出三个音名。' : '听原位或转位，从低到高写出三个音名。'} />
     <PlayWithInstrument label="▶ 重播当前排列" onPlay={onPlay}><div className="segmented compact"><button type="button" aria-pressed={playback === 'melodic'} className={playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" aria-pressed={playback === 'harmonic'} className={playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></PlayWithInstrument>
     {feedback && <MusicScore score={buildStandaloneScore(question.notes)} label="三和弦谱面" />}
     <NoteKeyboard values={noteValues} correctValues={feedback ? question.answers : undefined} activeIndex={activeSlot} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={onActiveSlotChange} onChange={onChange} onValuePlay={feedback ? onValuePlay : undefined} onSubmit={onSubmit} />
-    {feedback && <p className="note-play-hint">点击已填写的音名，可以试听自己的答案。</p>}
+    {feedback && <p className="note-play-hint">点击任一音名可试听。</p>}
     {!feedback && <button type="button" className="submit-button" disabled={noteValues.some((value) => !value)} onClick={onSubmit}>提交三个音名</button>}
   </>
 }
@@ -95,8 +93,8 @@ export function TriadFillExercise({ question, notation, playback, feedback, note
 export function ChordToneExercise({ question, notation, feedback, noteValues, onChange, onPlay, onSubmit }: { question: Extract<PracticeQuestion, { kind: 'chord-tone' }>; notation: AppSettings['chordNotation']; feedback: AnswerFeedback | null; noteValues: string[]; onChange: (values: string[]) => void; onPlay: () => void; onSubmit: () => void }) {
   const target = question.target === 'third' ? '三音' : '五音'
   return <>
-    <QuestionHeading eyebrow="CHORD MEMBER" title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={<>{'这个和弦的 '}<strong className="question-target">{target}</strong>{' 是什么？'}</>} />
-    <PlayWithInstrument label="▶ 和弦后播放目标音" onPlay={onPlay} />
+    <QuestionHeading eyebrow="和弦成员音" title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={<>{'这个和弦的 '}<strong className="question-target">{target}</strong>{' 是什么？'}</>} />
+    <PlayWithInstrument label="▶ 先听和弦，再听目标音" onPlay={onPlay} />
     {feedback && <MusicScore score={buildStandaloneScore(question.notes, [question.targetIndex])} label="三和弦原位谱面，目标音已高亮" />}
     <NoteKeyboard values={noteValues} correctValues={feedback ? [question.answer] : undefined} activeIndex={0} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={() => undefined} onChange={onChange} onSubmit={onSubmit} />
     {!feedback && <button type="button" className="submit-button" disabled={!noteValues[0]} onClick={onSubmit}>提交音名</button>}
@@ -118,8 +116,8 @@ export function SeventhVoicingExercise({ question, notation, playback, feedback,
 }) {
   const drop2 = question.kind === 'drop2-voicing'
   return <>
-    <QuestionHeading eyebrow={drop2 ? 'DROP 2 VOICING' : 'SHELL CHORD'} title={<ChordSymbol chord={question.chord} notation={notation} />} subtitle={`听和弦后，按实际低到高填写${drop2 ? '四个' : '三个'}成员。`} />
-    <PlayWithInstrument label="▶ 重新播放" onPlay={onPlay}><div className="segmented compact"><button type="button" aria-pressed={playback === 'arpeggio'} className={playback === 'arpeggio' ? 'selected' : ''} onClick={() => onPlaybackChange('arpeggio')}>琶音</button><button type="button" aria-pressed={playback === 'harmonic'} className={playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></PlayWithInstrument>
+    <QuestionHeading eyebrow={drop2 ? 'DROP 2' : 'SHELL'} title={<ChordSymbol chord={question.chord} notation={notation} />} subtitle={drop2 ? '听和弦，按低到高填写根、三、五、七的顺序。' : '听和弦，按低到高填写根、三、七的顺序。'} />
+    <PlayWithInstrument label="▶ 重播" onPlay={onPlay}><div className="segmented compact"><button type="button" aria-pressed={playback === 'arpeggio'} className={playback === 'arpeggio' ? 'selected' : ''} onClick={() => onPlaybackChange('arpeggio')}>琶音</button><button type="button" aria-pressed={playback === 'harmonic'} className={playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></PlayWithInstrument>
     {feedback && <><MusicScore score={buildStandaloneScore(question.notes)} label={`${drop2 ? 'Drop 2' : 'Shell'} 七和弦谱面`} /><p className="voicing-answer"><strong><ChordMemberSequence values={question.answer} /></strong><span><PitchSequence values={question.notes} /></span></p></>}
     <ChordMemberKeyboard values={memberValues} correctValues={feedback ? question.answer : undefined} activeIndex={activeSlot} allowedMembers={drop2 ? ['R', '3', '5', '7'] : ['R', '3', '7']} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={onActiveSlotChange} onChange={onChange} onSubmit={onSubmit} />
     {!feedback && <button type="button" className="submit-button" disabled={memberValues.some((value) => !value)} onClick={onSubmit}>提交成员排列</button>}
@@ -130,12 +128,12 @@ export function FeedbackPanel({ question, notation, feedback, onReplay, onNext, 
   const panelRef = useRef<HTMLDivElement>(null)
   useEffect(() => panelRef.current?.focus({ preventScroll: true }), [question.id])
   let explanation: ReactNode = ''
-  if (question.kind === 'interval') explanation = `${question.lower.letter} 到 ${question.upper.letter} 数 ${question.answer.degree} 度；实际相差 ${question.answer.semitones} 个半音，所以是${question.answer.label}。`
-  else if (question.kind === 'triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />（{triadSolfege(question.triad.quality)}）；本题为{INVERSION_TEXT[question.inversion]}，低到高是 <PitchSequence values={question.answers} />（{triadSolfege(question.triad.quality, question.inversion)}）。</>
+  if (question.kind === 'interval') explanation = `${question.lower.letter} 到 ${question.upper.letter} 是 ${question.answer.degree} 度，相隔 ${question.answer.semitones} 个半音，所以是${question.answer.label}。`
+  else if (question.kind === 'triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为{INVERSION_TEXT[question.inversion]}，从低到高是 <PitchSequence values={question.answers} />。</>
   else if (question.kind === 'spread-triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为 Spread {question.pattern}，低到高是 <PitchSequence values={question.answers} />。</>
   else if (question.kind === 'chord-tone') explanation = <>{triadFormula(question.triad.quality)}；题目的{question.target === 'third' ? '三音' : '五音'}是 <PitchName value={question.answer} />。</>
-  else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <><ChordSymbol chord={question.chord} notation={notation} /> 本题低到高为 <ChordMemberSequence values={question.answer} />，实际音名是 <PitchSequence values={question.notes} />。</>
-  else if (question.kind === 'scale-degree') explanation = <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是 <PitchName value={question.note} />；调内音名必须依照该调的正确拼写。</>
+  else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <><ChordSymbol chord={question.chord} notation={notation} /> 由低到高是 <ChordMemberSequence values={question.answer} />（<PitchSequence values={question.notes} />）。</>
+  else if (question.kind === 'scale-degree') explanation = <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是 <PitchName value={question.note} />；音名须按该调拼写。</>
   else explanation = <><PitchName value={question.key.tonic} /> 大调中：{question.chords.map((chord, index) => <span key={index}>{index > 0 && '，'}{chord.roman}=<ChordSymbol chord={chord} notation={notation} /></span>)}。</>
-  return <div ref={panelRef} tabIndex={-1} className={`feedback-panel ${feedback.correct ? 'correct' : 'wrong'}`} role="status"><div className="feedback-title"><span>{feedback.correct ? '✓' : '!'}</span><strong>{feedback.correct ? '答对了' : '再看一步'}</strong></div>{feedback.enharmonic && <p className="enharmonic-note">音高相同，但理论拼写不正确。</p>}<p>{explanation}</p><p className="feedback-shortcut-hint">键盘：Enter 下一题 · 空格重播</p><div className="feedback-actions"><button type="button" className="secondary-button" onClick={onReplay}>▶ 再听一次</button><button type="button" className="primary-button" onClick={onNext}>{isLast ? '查看本轮结果' : '下一题 →'}</button></div></div>
+  return <div ref={panelRef} tabIndex={-1} className={`feedback-panel ${feedback.correct ? 'correct' : 'wrong'}`} role="status"><div className="feedback-title"><span>{feedback.correct ? '✓' : '!'}</span><strong>{feedback.correct ? '答对了' : '答案如下'}</strong></div>{feedback.enharmonic && <p className="enharmonic-note">音高相同，但音名拼写不对。</p>}<p>{explanation}</p><div className="feedback-actions"><button type="button" className="secondary-button" onClick={onReplay}>▶ 再听一次</button><button type="button" className="primary-button" onClick={onNext}>{isLast ? '查看本轮结果' : '下一题 →'}</button></div></div>
 }

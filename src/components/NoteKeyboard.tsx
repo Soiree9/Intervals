@@ -156,7 +156,6 @@ export function NoteKeyboard({
           <button type="button" className="clear-key" onClick={() => { updateActive(''); focusAnswerSlot(groupId, activeIndex) }} disabled={disabled}>清除</button>
         </div>
       </div>
-      {!disabled && <p className="note-shortcut-hint">键盘：A–G 输入音名 · 空框 b=B / 已填 b=降号 · s 或 #=升号 · n=还原号 · Backspace 清除 · 方向键或 Tab 切换 · Enter 提交 · 空格重播</p>}
     </div>
   )
 }

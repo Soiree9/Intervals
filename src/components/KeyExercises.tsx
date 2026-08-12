@@ -45,9 +45,9 @@ export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValu
   const score = useMemo(() => buildScaleDegreeScore(question), [question])
   return (
     <>
-      <div className="question-heading"><div className="eyebrow">SCALE DEGREE</div><h1>{isForward ? <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是什么音？</> : <><PitchName value={question.key.tonic} /> 大调中的 <PitchName value={question.note} /> 是第几级？</>}</h1><p>先听 V–I 正格终止，再听目标单音。</p></div>
+      <div className="question-heading"><div className="eyebrow">音名与音级</div><h1>{isForward ? <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是什么音？</> : <><PitchName value={question.key.tonic} /> 大调中的 <PitchName value={question.note} /> 是第几级？</>}</h1><p>先听 V–I，再听目标音。</p></div>
       <MusicScore score={score} label="五级、一级与目标单音五线谱" />
-      <PlayWithInstrument label="▶ 重播终止与目标音" onPlay={onPlay} />
+      <PlayWithInstrument label="▶ 重播 V–I 与目标音" onPlay={onPlay} />
       {isForward ? <>
         <NoteKeyboard values={noteValues} correctValues={feedback ? [pitchName(question.note)] : undefined} activeIndex={0} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={() => undefined} onChange={onNoteChange} onSubmit={onSubmitNotes} />
         {!feedback && <button type="button" className="submit-button" disabled={!noteValues[0]} onClick={onSubmitNotes}>提交音名</button>}
@@ -102,9 +102,9 @@ export function ProgressionExercise({ question, notation, feedback, noteValues, 
   }, [feedback, forward, noteEntryGroupId, qualityChoices, setQuality])
   return (
     <>
-      <div className="question-heading"><div className="eyebrow">PROGRESSION</div><h1><PitchName value={question.key.tonic} /> 大调 · 四小节进行</h1><p>{forward ? '根据级数写出每小节的完整和弦符号。' : '根据和弦符号逐格选择调内级数。'}</p></div>
+      <div className="question-heading"><div className="eyebrow">和弦进行</div><h1><PitchName value={question.key.tonic} /> 大调 · 四小节进行</h1><p>{forward ? '根据级数写出每小节的和弦。' : '根据和弦符号，选择各小节的调内级数。'}</p></div>
       <MusicScore score={score} label="四小节和弦进行五线谱" />
-      <PlayWithInstrument label="▶ 重播四小节进行（约 123 BPM）" onPlay={onPlay} />
+      <PlayWithInstrument label="▶ 重播进行" onPlay={onPlay} />
       <div className="progression-grid">
         {question.chords.map((chord, index) => <button type="button" key={index} className={`progression-cell ${activeStep === index ? 'playing' : ''} ${activeSlot === index && !feedback ? 'active' : ''}`} onClick={() => !feedback && onActiveSlotChange(index)} data-note-entry-group={forward ? noteEntryGroupId : undefined} data-note-entry-slot={forward ? index : undefined} data-answer-scope-id={forward ? noteEntryGroupId : undefined} data-answer-slot={forward ? index : undefined} data-quiz-answer-control="true" tabIndex={forward && activeSlot === index && !feedback ? 0 : -1} aria-label={forward ? `第 ${index + 1} 个和弦音名：${noteValues[index] || '未填写'}` : undefined}>
           {forward ? <><small>{chord.roman}</small><strong>{noteValues[index] ? <ChordSymbol chord={{ root: parsePitchName(noteValues[index]), quality: qualities[index] ?? (seventhMode ? 'major7' : 'major') }} notation={notation} /> : '—'}</strong></> : <><small>和弦 {index + 1}</small><strong><ChordSymbol chord={chord} notation={notation} /></strong></>}
@@ -180,7 +180,6 @@ function DegreeChoices({ values, correct, disabled, exploring, focusKey, onChang
     <div className="degree-answer">
       <div className="degree-slots">{values.map((value, index) => <button type="button" key={index} disabled={disabled} data-answer-scope-id={scopeId} data-answer-slot={index} data-quiz-answer-control="true" tabIndex={active === index && !disabled ? 0 : -1} onClick={() => setActive(index)} className={`${active === index && !disabled ? 'active' : ''} ${correct ? value === correct[index] ? 'correct' : 'wrong' : ''}`}>{value ? `${value}级` : '—'}</button>)}</div>
       <div className="degree-grid">{SCALE_DEGREES.map((degree) => <button type="button" key={degree} data-quiz-answer-control="true" disabled={disabled && !onExplore} className={exploring === degree ? 'exploring' : ''} onClick={() => disabled ? onExplore?.(degree) : chooseDegree(degree)} aria-label={disabled && onExplore ? `试听第 ${degree} 级` : undefined}>{degree}</button>)}</div>
-      {!disabled && <p className="note-shortcut-hint">键盘：1–7 输入音级 · 方向键或 Tab 切换 · Enter 提交 · 空格重播</p>}
     </div>
   )
 }

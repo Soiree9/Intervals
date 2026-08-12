@@ -106,7 +106,7 @@ export function ChordMemberKeyboard({
 
   return (
     <div className="member-entry">
-      <div className="member-slots" aria-label="和弦成员排列">
+      <div className="member-slots" aria-label="和弦成员顺序">
         {values.map((value, index) => (
           <button
             type="button"
@@ -124,7 +124,7 @@ export function ChordMemberKeyboard({
           </button>
         ))}
       </div>
-      <div className="member-keyboard" aria-label="和弦成员键盘">
+      <div className="member-keyboard" aria-label="选择和弦成员">
         <div className="member-row">
           {allowedMembers.map((member) => <button type="button" key={member} onClick={() => chooseMember(member)} disabled={disabled}><ChordMemberSymbol value={member} /></button>)}
         </div>
@@ -134,7 +134,6 @@ export function ChordMemberKeyboard({
           <button type="button" className="clear-key" onClick={() => { updateActive(''); focusActive() }} disabled={disabled}>清除</button>
         </div>
       </div>
-      {!disabled && <p className="note-shortcut-hint">键盘：R / 3 / 5 / 7 输入成员 · b=降号 · n=还原号 · Backspace 清除 · 方向键或 Tab 切换 · Enter 提交 · 空格重播</p>}
     </div>
   )
 }

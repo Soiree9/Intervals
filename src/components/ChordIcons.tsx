@@ -13,7 +13,7 @@ export function TriadStackIcon() {
 }
 
 export function Drop2Icon() {
-  return <svg className="submodule-icon drop2-icon" viewBox="0 0 56 56" role="img" aria-label="Drop 2：第二高音 D 下移八度到低音 D">
+  return <svg className="submodule-icon drop2-icon" viewBox="0 0 56 56" role="img" aria-label="Drop 2：将第二高音下移八度">
     <g fill="none" stroke="currentColor" strokeWidth="1">
       {[8, 16, 24, 32, 40].map((y) => <line key={y} x1="3" y1={y} x2="53" y2={y} opacity=".42" />)}
     </g>

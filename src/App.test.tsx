@@ -19,9 +19,9 @@ vi.mock('./components/Staff', () => ({
 }))
 
 async function startClosedTriad() {
-  fireEvent.click(screen.getByRole('button', { name: /进入和弦/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^02.*和弦.*选择练习/ }))
   fireEvent.click(screen.getByRole('button', { name: /三和弦/ }))
-  fireEvent.click(screen.getByRole('button', { name: /Closed Triad/ }))
+  fireEvent.click(screen.getByRole('button', { name: /密集排列（Closed）/ }))
   fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
   await screen.findByRole('button', { name: '× 结束' })
   await waitFor(() => expect(screen.getByRole('button', { name: /第 1 个音/ })).toHaveFocus())
@@ -59,7 +59,7 @@ describe('App quiz navigation and triad playback', () => {
 
     const stopCount = audio.stopAudio.mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: '× 结束' }))
-    expect(await screen.findByRole('heading', { name: '选择三和弦测验' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '选择三和弦练习' })).toBeInTheDocument()
     expect(audio.stopAudio).toHaveBeenCalledTimes(stopCount + 1)
   })
 
@@ -101,9 +101,9 @@ describe('App quiz navigation and triad playback', () => {
 
   it('accepts number and Enter hotkeys for a reverse scale-degree answer', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /进入调模块/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^03.*调.*选择练习/ }))
     fireEvent.click(screen.getByRole('button', { name: /音名与音级/ }))
-    fireEvent.click(screen.getByRole('button', { name: '反向' }))
+    fireEvent.click(screen.getByRole('button', { name: '音名 → 音级' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     await screen.findByRole('button', { name: '× 结束' })
     const slot = await waitFor(() => {
@@ -127,9 +127,9 @@ describe('App quiz navigation and triad playback', () => {
 
   it('uses number hotkeys for progression quality and submits a complete four-cell answer with Enter', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /进入调模块/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^03.*调.*选择练习/ }))
     fireEvent.click(screen.getByRole('button', { name: /和弦进行与级数/ }))
-    fireEvent.click(screen.getByRole('button', { name: '正向' }))
+    fireEvent.click(screen.getByRole('button', { name: '音级 → 音名' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     await screen.findByRole('button', { name: '× 结束' })
     const firstCell = await waitFor(() => {
@@ -171,7 +171,7 @@ describe('App quiz navigation and triad playback', () => {
     }]))
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: /错题 1/ }))
-    fireEvent.click(screen.getByRole('button', { name: '复习这 1 题' }))
+    fireEvent.click(screen.getByRole('button', { name: '复习这 1 道题' }))
     await screen.findByRole('button', { name: '× 结束' })
     fireEvent.click(screen.getByRole('button', { name: '× 结束' }))
     expect(await screen.findByRole('heading', { name: '错题复习' })).toBeInTheDocument()
@@ -179,18 +179,18 @@ describe('App quiz navigation and triad playback', () => {
 
   it('shows the V–I cadence and target note together on the scale-degree staff', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /进入调模块/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^03.*调.*选择练习/ }))
     fireEvent.click(screen.getByRole('button', { name: /音名与音级/ }))
-    fireEvent.click(screen.getByRole('button', { name: '正向' }))
+    fireEvent.click(screen.getByRole('button', { name: '音级 → 音名' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     expect(await screen.findByRole('img', { name: '五级、一级与目标单音五线谱' })).toBeInTheDocument()
   })
 
   it('shows all four played voicings on the progression staff', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /进入调模块/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^03.*调.*选择练习/ }))
     fireEvent.click(screen.getByRole('button', { name: /和弦进行与级数/ }))
-    fireEvent.click(screen.getByRole('button', { name: '正向' }))
+    fireEvent.click(screen.getByRole('button', { name: '音级 → 音名' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     expect(await screen.findByRole('img', { name: '四小节和弦进行五线谱' })).toBeInTheDocument()
   })
