@@ -45,7 +45,12 @@ function loadJson<T>(key: string, fallback: T): T {
     const value = localStorage.getItem(key)
     return value ? (JSON.parse(value) as T) : fallback
   } catch {
-    localStorage.removeItem(key)
+    // iOS 无痕模式：getItem/removeItem 都可能抛异常，二次异常必须吞掉，否则白屏
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      /* storage unavailable */
+    }
     return fallback
   }
 }
@@ -107,8 +112,16 @@ export function loadSettings(): AppSettings {
   return migrated
 }
 
+function safeSetItem(key: string, value: string): void {
+  try {
+    safeSetItem(key, value)
+  } catch {
+    /* storage unavailable（如 iOS 无痕模式）：静默失败，不阻断练习 */
+  }
+}
+
 export function saveSettings(settings: AppSettings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  safeSetItem(SETTINGS_KEY, JSON.stringify(settings))
 }
 
 export function loadWrongItems(): WrongItem[] {
@@ -133,7 +146,7 @@ export function loadWrongItems(): WrongItem[] {
 }
 
 function saveWrongItems(items: WrongItem[]): void {
-  localStorage.setItem(WRONG_KEY, JSON.stringify(items))
+  safeSetItem(WRONG_KEY, JSON.stringify(items))
 }
 
 export function upsertWrongItem(items: WrongItem[], question: PracticeQuestion): WrongItem[] {
@@ -158,7 +171,7 @@ export function loadLastOrder(key: string): string {
 
 export function saveLastOrder(key: string, signature: string): void {
   const orders = loadJson<Record<string, string>>(ORDER_KEY, {})
-  localStorage.setItem(ORDER_KEY, JSON.stringify({ ...orders, [key]: signature }))
+  safeSetItem(ORDER_KEY, JSON.stringify({ ...orders, [key]: signature }))
 }
 
 export function loadLastQuestion(key: string): string {
@@ -167,7 +180,7 @@ export function loadLastQuestion(key: string): string {
 
 export function saveLastQuestion(key: string, identity: string): void {
   const questions = loadJson<Record<string, string>>(LAST_QUESTION_KEY, {})
-  localStorage.setItem(LAST_QUESTION_KEY, JSON.stringify({ ...questions, [key]: identity }))
+  safeSetItem(LAST_QUESTION_KEY, JSON.stringify({ ...questions, [key]: identity }))
 }
 
 export function loadStats(): LifetimeStats {
@@ -176,6 +189,6 @@ export function loadStats(): LifetimeStats {
 
 export function recordSession(stats: LifetimeStats, attempts: number, correct: number): LifetimeStats {
   const next = { sessions: stats.sessions + 1, attempts: stats.attempts + attempts, correct: stats.correct + correct }
-  localStorage.setItem(STATS_KEY, JSON.stringify(next))
+  safeSetItem(STATS_KEY, JSON.stringify(next))
   return next
 }

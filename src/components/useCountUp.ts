@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // jsdom（测试环境）没有 matchMedia：视为不需要动画，直接显示目标值
+  return typeof window === 'undefined' || typeof window.matchMedia !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 const easeOutExpo = (t: number): number => (t >= 1 ? 1 : 1 - 2 ** (-10 * t))
