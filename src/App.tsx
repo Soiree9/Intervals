@@ -7,6 +7,7 @@ import { ChordToneExercise, FeedbackPanel, IntervalExercise, SeventhVoicingExerc
 import { ProgressionExercise, ScaleDegreeExercise } from './components/KeyExercises'
 import { PitchName } from './components/MusicText'
 import { GlobalInstrumentSwitch } from './components/PlaybackControls'
+import { useCountUp } from './components/useCountUp'
 import { QuestionSummary } from './components/QuestionSummary'
 import { usePreserveAnswerFocus, useQuizShortcuts } from './components/useQuizShortcuts'
 import {
@@ -126,6 +127,8 @@ function App() {
 
   const question = questions[questionIndex]
   const correctCount = results.filter(Boolean).length
+  const summaryPercent = questions.length ? Math.round((correctCount / questions.length) * 100) : 0
+  const animatedSummaryPercent = useCountUp(summaryPercent)
   const filteredWrongItems = useMemo(
     () => wrongItems.filter((item) => wrongFilter === 'all' || item.kind === wrongFilter),
     [wrongFilter, wrongItems],
@@ -473,7 +476,7 @@ function App() {
         </section>}
 
         {view === 'summary' && <section className="summary-view panel">
-          <div className="summary-ring" style={{ '--score': `${questions.length ? Math.round((correctCount / questions.length) * 100) : 0}%` } as React.CSSProperties}><strong>{questions.length ? Math.round((correctCount / questions.length) * 100) : 0}%</strong><span>正确率</span></div>
+          <div className="summary-ring" style={{ '--score': `${summaryPercent}%` } as React.CSSProperties}><strong>{animatedSummaryPercent}%</strong><span>正确率</span></div>
           <div className="eyebrow">SESSION COMPLETE</div><h1>本轮完成</h1><p>正确 {correctCount} / {questions.length} · 用时 {elapsedSeconds} 秒 · {sessionMistakes.length} 道错题</p>
           <div className="summary-actions"><button type="button" className="primary-button" onClick={() => void beginSession(kind)}>再来 10 题</button>{sessionMistakes.length > 0 && <button type="button" className="secondary-button" onClick={() => void beginSession(kind, sessionMistakes)}>只练本轮错题</button>}<button type="button" className="text-button" onClick={goHome}>返回首页</button></div>
         </section>}
@@ -490,8 +493,11 @@ function App() {
 }
 
 function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
+  const sessions = useCountUp(stats.sessions)
+  const attempts = useCountUp(stats.attempts)
+  const accuracy = useCountUp(stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0)
   return <section className="home-view">
-    <div className="hero-card"><div className="eyebrow">READ · HEAR · NAME</div><h1>看见音符，听见关系，<br />说出它的名字。</h1><p>每轮 10 题，结合五线谱、音名和听觉练习。支持手机、电脑和离线使用。</p><div className="lifetime-stats"><div><strong>{stats.sessions}</strong><span>完成轮次</span></div><div><strong>{stats.attempts}</strong><span>累计答题</span></div><div><strong>{stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0}%</strong><span>累计正确率</span></div></div></div>
+    <div className="hero-card"><div className="eyebrow">READ · HEAR · NAME</div><h1>看见音符，听见关系，<br />说出它的名字。</h1><p>每轮 10 题，结合五线谱、音名和听觉练习。支持手机、电脑和离线使用。</p><div className="lifetime-stats"><div><strong>{sessions}</strong><span>完成轮次</span></div><div><strong>{attempts}</strong><span>累计答题</span></div><div><strong>{accuracy}%</strong><span>累计正确率</span></div></div></div>
     <div className="mode-grid three">
       <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><span className="mode-number">01</span><span className="mode-icon">♬</span><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p><span className="mode-link">开始设置 →</span></button>
       <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><span className="mode-number">02</span><span className="mode-icon"><TriadStackIcon /></span><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p><span className="mode-link">选择练习 →</span></button>
