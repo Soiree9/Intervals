@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAJOR_KEYS, buildTriad } from '../domain/music'
 import { DEFAULT_SETTINGS, loadSettings, loadWrongItems, saveSettings } from './storage'
 
@@ -54,6 +54,19 @@ describe('storage migrations', () => {
   it('persists the selected guitar across sessions', () => {
     saveSettings({ ...DEFAULT_SETTINGS, instrument: 'nylon-guitar' })
     expect(loadSettings().instrument).toBe('nylon-guitar')
+  })
+
+  it('writes through localStorage.setItem', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem')
+    saveSettings({ ...DEFAULT_SETTINGS, chordNotation: 'text' })
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('silently skips saving when storage throws (iOS private mode)', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('storage denied') })
+    expect(() => saveSettings({ ...DEFAULT_SETTINGS, instrument: 'nylon-guitar' })).not.toThrow()
+    spy.mockRestore()
   })
 
   it('does not restore old wrong items after the new wrong list was cleared', () => {

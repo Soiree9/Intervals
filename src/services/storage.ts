@@ -114,7 +114,7 @@ export function loadSettings(): AppSettings {
 
 function safeSetItem(key: string, value: string): void {
   try {
-    safeSetItem(key, value)
+    localStorage.setItem(key, value)
   } catch {
     /* storage unavailable（如 iOS 无痕模式）：静默失败，不阻断练习 */
   }
