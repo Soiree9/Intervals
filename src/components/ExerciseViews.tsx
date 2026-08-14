@@ -3,6 +3,8 @@ import {
   INVERSION_TEXT,
   pitchName,
   triadFormula,
+  triadMemberSequence,
+  triadSolfege,
 } from '../domain/music'
 import { buildStandaloneScore } from '../domain/notation'
 import type { AppSettings, IntervalIdentity, IntervalQuestion, IntervalSettings, NoteSpelling, PitchSpelling, PracticeQuestion } from '../domain/types'
@@ -29,8 +31,8 @@ function visibleNoteName(note: NoteSpelling, showOctaves: boolean): string {
   return showOctaves ? note.displayName : pitchName(note)
 }
 
-function PitchSequence({ values }: { values: readonly (string | PitchSpelling | NoteSpelling)[] }) {
-  return <>{values.map((value, index) => <span key={`${typeof value === 'string' ? value : pitchName(value)}-${index}`}>{index > 0 && '–'}<PitchName value={value} /></span>)}</>
+function PitchSequence({ values, separator = '–' }: { values: readonly (string | PitchSpelling | NoteSpelling)[]; separator?: string }) {
+  return <>{values.map((value, index) => <span key={`${typeof value === 'string' ? value : pitchName(value)}-${index}`}>{index > 0 && separator}<PitchName value={value} /></span>)}</>
 }
 
 export function QuestionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: ReactNode; subtitle: ReactNode }) {
@@ -129,7 +131,7 @@ export function FeedbackPanel({ question, notation, feedback, onReplay, onNext, 
   useEffect(() => panelRef.current?.focus({ preventScroll: true }), [question.id])
   let explanation: ReactNode = ''
   if (question.kind === 'interval') explanation = `${question.lower.letter} 到 ${question.upper.letter} 是 ${question.answer.degree} 度，相隔 ${question.answer.semitones} 个半音，所以是${question.answer.label}。`
-  else if (question.kind === 'triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为{INVERSION_TEXT[question.inversion]}，从低到高是 <PitchSequence values={question.answers} />。</>
+  else if (question.kind === 'triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} separator="-" />；本题为{INVERSION_TEXT[question.inversion]}，音名为 <PitchSequence values={question.answers} separator="-" />，从低到高是 {triadSolfege(question.triad.quality, question.inversion).replaceAll('–', '-')}，音程关系是 {triadMemberSequence(question.triad.quality, question.inversion)}。</>
   else if (question.kind === 'spread-triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为 Spread {question.pattern}，低到高是 <PitchSequence values={question.answers} />。</>
   else if (question.kind === 'chord-tone') explanation = <>{triadFormula(question.triad.quality)}；题目的{question.target === 'third' ? '三音' : '五音'}是 <PitchName value={question.answer} />。</>
   else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <><ChordSymbol chord={question.chord} notation={notation} /> 由低到高是 <ChordMemberSequence values={question.answer} />（<PitchSequence values={question.notes} />）。</>

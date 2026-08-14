@@ -313,17 +313,26 @@ export function triadFormula(quality: TriadQuality): string {
   return '减三和弦＝小三度＋减五度'
 }
 
+function rotateTriad<T>(values: [T, T, T], inversion: 0 | 1 | 2): [T, T, T] {
+  return [values[inversion], values[(inversion + 1) % 3], values[(inversion + 2) % 3]]
+}
+
+export function triadMemberSequence(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): string {
+  const rootPosition: [string, string, string] = quality === 'major'
+    ? ['R', 'M3', '5']
+    : quality === 'minor'
+      ? ['R', 'm3', '5']
+      : ['R', 'm3', '♭5']
+  return rotateTriad(rootPosition, inversion).join('-')
+}
+
 export function triadSolfege(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): string {
-  const rootPosition = quality === 'major'
+  const rootPosition: [string, string, string] = quality === 'major'
     ? ['Do', 'Mi', 'Sol']
     : quality === 'minor'
       ? ['Do', 'Me', 'Sol']
       : ['Do', 'Me', 'Se']
-  return [
-    rootPosition[inversion],
-    rootPosition[(inversion + 1) % 3],
-    rootPosition[(inversion + 2) % 3],
-  ].join('–')
+  return rotateTriad(rootPosition, inversion).join('–')
 }
 
 export function pitchClassIsEnharmonic(left: string, right: string): boolean {

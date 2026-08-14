@@ -10,6 +10,7 @@ import {
   formatChordSymbol,
   makeNote,
   pitchName,
+  triadMemberSequence,
   triadSolfege,
 } from './music'
 import type { ScaleDegree } from './types'
@@ -55,6 +56,12 @@ describe('major keys and diatonic triads', () => {
     expect(triadSolfege('major', 0)).toBe('Do–Mi–Sol')
     expect(triadSolfege('major', 1)).toBe('Mi–Sol–Do')
     expect(triadSolfege('minor', 0)).toBe('Do–Me–Sol')
+  })
+
+  it('describes triad members with quality-aware intervals', () => {
+    expect(triadMemberSequence('major', 1)).toBe('M3-5-R')
+    expect(triadMemberSequence('minor', 2)).toBe('5-R-m3')
+    expect(triadMemberSequence('diminished', 0)).toBe('R-m3-♭5')
   })
 })
 
