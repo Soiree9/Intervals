@@ -15,7 +15,16 @@ const audio = vi.hoisted(() => ({
 
 vi.mock('./services/audio', () => audio)
 vi.mock('./components/Staff', () => ({
-  MusicScore: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+  MusicScore: ({ label, score, onNoteClick }: {
+    label: string
+    score: { measures: Array<{ events: Array<{ notes: Array<{ accidental: number; displayName: string; letter: string; midi: number; octave: number }> }> }> }
+    onNoteClick?: (note: { accidental: number; displayName: string; letter: string; midi: number; octave: number }) => void
+  }) => <>
+    <div role="img" aria-label={label} />
+    {onNoteClick && score.measures.flatMap((measure) => measure.events).flatMap((event) => event.notes).map((note, index) => (
+      <button type="button" aria-label={`播放 ${note.displayName}`} key={`${note.displayName}-${index}`} onClick={() => onNoteClick(note)} />
+    ))}
+  </>,
 }))
 
 async function startClosedTriad() {
@@ -97,6 +106,27 @@ describe('App quiz navigation and triad playback', () => {
     await waitFor(() => expect(audio.playNotes).toHaveBeenCalled())
     fireEvent.keyDown(feedback, { key: 'Enter' })
     await waitFor(() => expect(screen.getByText('2 / 10')).toBeInTheDocument())
+  })
+
+  it('stops current audio and plays the clicked interval staff note with the selected instrument', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /开始设置/ }))
+    fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
+    await screen.findByRole('button', { name: '× 结束' })
+    await waitFor(() => expect(audio.playNotes).toHaveBeenCalled())
+    const noteButton = (await screen.findAllByRole('button', { name: /^播放 [A-G]/ }))[0]
+    const displayName = noteButton.getAttribute('aria-label')?.replace('播放 ', '')
+    vi.clearAllMocks()
+
+    fireEvent.click(noteButton)
+
+    await waitFor(() => expect(audio.playNotes).toHaveBeenCalledWith(
+      [expect.objectContaining({ displayName })],
+      'harmonic',
+      'piano',
+    ))
+    expect(audio.stopAudio).toHaveBeenCalledOnce()
+    expect(audio.stopAudio.mock.invocationCallOrder[0]).toBeLessThan(audio.playNotes.mock.invocationCallOrder[0])
   })
 
   it('accepts number and Enter hotkeys for a reverse scale-degree answer', async () => {

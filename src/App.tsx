@@ -39,6 +39,7 @@ import type {
   InstrumentId,
   KeyPracticeDirection,
   LifetimeStats,
+  NoteSpelling,
   PracticeKind,
   PracticePlaybackSettings,
   PracticeQuestion,
@@ -361,6 +362,11 @@ function App() {
     setAudioSource(await playNotes([note], 'harmonic', settings.instrument))
   }
 
+  const playStaffNote = async (note: NoteSpelling) => {
+    stopAudio()
+    setAudioSource(await playNotes([note], 'harmonic', settings.instrument))
+  }
+
   const nextQuestion = () => {
     stopAudio()
     setProgressionStep(null)
@@ -465,10 +471,10 @@ function App() {
             <div className="score-pill">答对 {correctCount}</div>
           </div>
           <article className={`question-card ${feedback ? feedback.correct ? 'feedback-correct' : 'feedback-wrong' : ''}`}>
-            {question.kind === 'interval' && <IntervalExercise question={question} settings={settings.interval} feedback={feedback} preview={intervalPreview} onAnswer={answerInterval} onExplore={(option) => void exploreInterval(option)} onPlay={() => void playQuestion()} onPlaybackChange={changeIntervalPlayback} onShowOctavesChange={(showOctaves) => setSettings((current) => ({ ...current, interval: { ...current.interval, showOctaves } }))} />}
-            {(question.kind === 'triad-fill' || question.kind === 'spread-triad-fill') && <TriadFillExercise question={question} notation={settings.chordNotation} playback={settings.triad.playback} feedback={feedback} noteValues={noteValues} activeSlot={activeSlot} onActiveSlotChange={setActiveSlot} onChange={setNoteValues} onPlay={() => void playQuestion()} onPlaybackChange={changeTriadPlayback} onSubmit={submitNotes} onValuePlay={(value, index) => void playFilledNote(value, index)} />}
-            {question.kind === 'chord-tone' && <ChordToneExercise question={question} notation={settings.chordNotation} feedback={feedback} noteValues={noteValues} onChange={setNoteValues} onPlay={() => void playQuestion()} onSubmit={submitNotes} />}
-            {(question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') && <SeventhVoicingExercise question={question} notation={settings.chordNotation} playback={settings.seventh.playback} feedback={feedback} memberValues={memberValues} activeSlot={activeSlot} onActiveSlotChange={setActiveSlot} onChange={setMemberValues} onPlay={() => void playQuestion()} onPlaybackChange={changeSeventhPlayback} onSubmit={submitMembers} />}
+            {question.kind === 'interval' && <IntervalExercise question={question} settings={settings.interval} feedback={feedback} preview={intervalPreview} onAnswer={answerInterval} onExplore={(option) => void exploreInterval(option)} onPlay={() => void playQuestion()} onNoteClick={(note) => void playStaffNote(note)} onPlaybackChange={changeIntervalPlayback} onShowOctavesChange={(showOctaves) => setSettings((current) => ({ ...current, interval: { ...current.interval, showOctaves } }))} />}
+            {(question.kind === 'triad-fill' || question.kind === 'spread-triad-fill') && <TriadFillExercise question={question} notation={settings.chordNotation} playback={settings.triad.playback} feedback={feedback} noteValues={noteValues} activeSlot={activeSlot} onActiveSlotChange={setActiveSlot} onChange={setNoteValues} onPlay={() => void playQuestion()} onNoteClick={(note) => void playStaffNote(note)} onPlaybackChange={changeTriadPlayback} onSubmit={submitNotes} onValuePlay={(value, index) => void playFilledNote(value, index)} />}
+            {question.kind === 'chord-tone' && <ChordToneExercise question={question} notation={settings.chordNotation} feedback={feedback} noteValues={noteValues} onChange={setNoteValues} onPlay={() => void playQuestion()} onNoteClick={(note) => void playStaffNote(note)} onSubmit={submitNotes} />}
+            {(question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') && <SeventhVoicingExercise question={question} notation={settings.chordNotation} playback={settings.seventh.playback} feedback={feedback} memberValues={memberValues} activeSlot={activeSlot} onActiveSlotChange={setActiveSlot} onChange={setMemberValues} onPlay={() => void playQuestion()} onNoteClick={(note) => void playStaffNote(note)} onPlaybackChange={changeSeventhPlayback} onSubmit={submitMembers} />}
             {question.kind === 'scale-degree' && <ScaleDegreeExercise question={question} feedback={feedback} noteValues={noteValues} degreeValues={degreeValues} exploringDegree={scaleDegreePreview} onNoteChange={setNoteValues} onDegreeChange={setDegreeValues} onPlay={() => void playQuestion()} onExploreDegree={(degree) => void exploreScaleDegree(degree)} onSubmitNotes={submitNotes} onSubmitDegrees={submitDegrees} />}
             {question.kind === 'progression' && <ProgressionExercise question={question} notation={settings.chordNotation} feedback={feedback} noteValues={noteValues} degreeValues={degreeValues} qualities={progressionQualities} activeSlot={activeSlot} activeStep={progressionStep} onActiveSlotChange={setActiveSlot} onNoteChange={setNoteValues} onQualityChange={setProgressionQualities} onDegreeChange={setDegreeValues} onPlay={() => void playQuestion()} onSubmitNotes={submitNotes} onSubmitDegrees={submitDegrees} />}
             {feedback && <FeedbackPanel question={question} notation={settings.chordNotation} feedback={feedback} onReplay={() => void playQuestion()} onNext={nextQuestion} isLast={questionIndex + 1 === questions.length} />}

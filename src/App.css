@@ -142,8 +142,13 @@ legend small { color: var(--muted); font-weight: 450; }
 .question-heading h1 .pitch-name { --pitch-accidental-gap: .075em; }
 .question-heading p { color: var(--muted); line-height: 1.6; }
 .question-card > .play-button { display: block; margin: 20px auto; }
-.staff { width: 100%; min-height: 176px; margin: 20px 0 10px; overflow: hidden; border-block: 1px solid #e3dfd2; background: rgba(255,255,255,.52); transition: height .18s var(--ease-out-quart); }
+.staff { position: relative; width: 100%; min-height: 176px; margin: 20px 0 10px; overflow: hidden; border-block: 1px solid #e3dfd2; background: rgba(255,255,255,.52); transition: height .18s var(--ease-out-quart); }
+.staff-score { width: 100%; height: 100%; }
 .staff svg { display: block; max-width: 100%; }
+.staff-hit-layer { position: absolute; inset: 0; pointer-events: none; }
+.staff-note-hit { position: absolute; box-sizing: border-box; padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; pointer-events: auto; transition: border-color .14s var(--ease-out-quart), background .14s var(--ease-out-quart), box-shadow .14s var(--ease-out-quart); }
+.staff-note-hit:hover { border-color: var(--forest); background: rgba(44,90,65,.12); }
+.staff-note-hit:focus-visible { outline: none; border-color: var(--orange); background: rgba(219,91,63,.12); box-shadow: 0 0 0 3px rgba(219,91,63,.2); }
 .play-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 24px; }
 .interval-control-groups { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; }
 .control-group { display: flex; align-items: center; gap: 6px; }

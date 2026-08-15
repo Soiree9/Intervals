@@ -9,7 +9,7 @@ import {
   StaveNote,
   Voice,
 } from 'vexflow'
-import type { Accidental as AccidentalValue } from '../domain/types'
+import type { Accidental as AccidentalValue, NoteSpelling } from '../domain/types'
 import {
   keyNameForSignature,
   resolveAccidentals,
@@ -17,10 +17,12 @@ import {
   type ScoreEvent,
   type ScoreSpec,
 } from '../domain/notation'
+import { scoreHitAreas, type ScoreHitArea, type StaveNoteHeadBounds } from './scoreHitAreas'
 
 interface MusicScoreProps {
   score: ScoreSpec
   label: string
+  onNoteClick?: (note: NoteSpelling) => void
 }
 
 const HIGHLIGHT_STYLE = { fillStyle: '#db5b3f', strokeStyle: '#db5b3f' }
@@ -57,6 +59,27 @@ function createStaveNote(event: ScoreEvent, marks: AccidentalMark[]) {
   return staveNote
 }
 
+const MIN_HIT_SIZE = 20
+
+function renderedNoteHeadBounds(staveNote: StaveNote): StaveNoteHeadBounds[] {
+  // VexFlow 5 的 getNoteHeadBounds() 返回和弦聚合包围盒；逐音符头的渲染框在 noteHeads 上。
+  return staveNote.noteHeads.map((noteHead) => {
+    const bounds = noteHead.getBoundingBox()
+    const width = Math.max(bounds.getW(), MIN_HIT_SIZE)
+    const height = Math.max(bounds.getH(), MIN_HIT_SIZE)
+    return {
+      x: bounds.getX() - (width - bounds.getW()) / 2,
+      y: bounds.getY() - (height - bounds.getH()) / 2,
+      width,
+      height,
+    }
+  })
+}
+
+function hitAreasForEvent(event: ScoreEvent, staveNote: StaveNote): ScoreHitArea[] {
+  return scoreHitAreas(event, { getNoteHeadBounds: () => renderedNoteHeadBounds(staveNote) })
+}
+
 function splitMeasures<T>(values: T[], size: number): T[][] {
   const rows: T[][] = []
   for (let index = 0; index < values.length; index += size) rows.push(values.slice(index, index + size))
@@ -86,10 +109,13 @@ function measuredStaveWidths(score: ScoreSpec, systemIndex: number, measureCount
   return [evenWidth + leadingExtra, ...Array.from({ length: measureCount - 1 }, () => remainingWidth)]
 }
 
-export function MusicScore({ score, label }: MusicScoreProps) {
+export function MusicScore({ score, label, onNoteClick }: MusicScoreProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const scoreRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(560)
+  const [hitAreas, setHitAreas] = useState<ScoreHitArea[]>([])
   const accidentalMarks = useMemo(() => resolveAccidentals(score), [score])
+  const interactive = onNoteClick !== undefined
   const systemCount = scoreSystemCount(score, width)
   const height = systemCount * SYSTEM_HEIGHT + 28
 
@@ -101,7 +127,7 @@ export function MusicScore({ score, label }: MusicScoreProps) {
   }, [])
 
   useEffect(() => {
-    const container = containerRef.current
+    const container = scoreRef.current
     if (!container || !score.measures.length) return
     container.replaceChildren()
     const renderer = new Renderer(container, Renderer.Backends.SVG)
@@ -119,9 +145,11 @@ export function MusicScore({ score, label }: MusicScoreProps) {
       const voice = new Voice({ numBeats: events.length * 4, beatValue: 4 }).addTickables(notes)
       new Formatter().joinVoices([voice]).formatToStave([voice], stave)
       voice.draw(context, stave)
+      if (interactive) setHitAreas(events.flatMap((event, index) => hitAreasForEvent(event, notes[index])))
       return
     }
 
+    const nextHitAreas: ScoreHitArea[] = []
     const measuresPerSystem = width < NARROW_SCORE_WIDTH ? NARROW_MEASURES_PER_SYSTEM : score.measures.length
     const systems = splitMeasures(score.measures, measuresPerSystem)
     let measureOffset = 0
@@ -147,11 +175,29 @@ export function MusicScore({ score, label }: MusicScoreProps) {
         }).addTickables(notes)
         new Formatter().joinVoices([voice]).formatToStave([voice], stave)
         voice.draw(context, stave)
+        if (interactive) {
+          measure.events.forEach((event, eventIndex) => {
+            nextHitAreas.push(...hitAreasForEvent(event, notes[eventIndex]))
+          })
+        }
         x += staveWidths[indexInSystem]
       })
       measureOffset += measures.length
     })
-  }, [accidentalMarks, height, score, width])
+    if (interactive) setHitAreas(nextHitAreas)
+  }, [accidentalMarks, height, interactive, score, width])
 
-  return <div className={`staff ${score.measured ? 'measured-score' : 'unmeasured-score'}`} style={{ height }} ref={containerRef} role="img" aria-label={label} />
+  return <div className={`staff ${score.measured ? 'measured-score' : 'unmeasured-score'}`} style={{ height }} ref={containerRef} role={interactive ? undefined : 'img'} aria-label={interactive ? undefined : label}>
+    <div className="staff-score" ref={scoreRef} role={interactive ? 'img' : undefined} aria-label={interactive ? label : undefined} />
+    {interactive && hitAreas.length > 0 && <div className="staff-hit-layer">
+      {hitAreas.map((area, index) => <button
+        type="button"
+        className="staff-note-hit"
+        key={`${area.label}-${area.x}-${area.y}-${index}`}
+        aria-label={`播放 ${area.label}`}
+        style={{ left: area.x, top: area.y, width: area.width, height: area.height }}
+        onClick={() => onNoteClick?.(area.note)}
+      />)}
+    </div>}
+  </div>
 }

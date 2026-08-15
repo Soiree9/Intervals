@@ -39,7 +39,7 @@ export function QuestionHeading({ eyebrow, title, subtitle }: { eyebrow: string;
   return <div className="question-heading"><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{subtitle}</p></div>
 }
 
-export function IntervalExercise({ question, settings, feedback, preview, onAnswer, onExplore, onPlay, onPlaybackChange, onShowOctavesChange }: { question: IntervalQuestion; settings: IntervalSettings; feedback: AnswerFeedback | null; preview: IntervalPreview | null; onAnswer: (answer: string) => void; onExplore: (option: IntervalIdentity) => void; onPlay: () => void; onPlaybackChange: (mode: 'melodic' | 'harmonic') => void; onShowOctavesChange: (show: boolean) => void }) {
+export function IntervalExercise({ question, settings, feedback, preview, onAnswer, onExplore, onPlay, onNoteClick, onPlaybackChange, onShowOctavesChange }: { question: IntervalQuestion; settings: IntervalSettings; feedback: AnswerFeedback | null; preview: IntervalPreview | null; onAnswer: (answer: string) => void; onExplore: (option: IntervalIdentity) => void; onPlay: () => void; onNoteClick: (note: NoteSpelling) => void; onPlaybackChange: (mode: 'melodic' | 'harmonic') => void; onShowOctavesChange: (show: boolean) => void }) {
   const scopeId = useId()
   const [activeOption, setActiveOption] = useState(0)
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -70,7 +70,7 @@ export function IntervalExercise({ question, settings, feedback, preview, onAnsw
 
   return <>
     <QuestionHeading eyebrow="音程判断" title={<><PitchName value={visibleNoteName(question.lower, settings.showOctaves)} /> – <PitchName value={visibleNoteName(question.upper, settings.showOctaves)} /></>} subtitle="看音名和五线谱，判断完整音程。" />
-    <MusicScore score={buildStandaloneScore([question.lower, question.upper])} label="音程五线谱" />
+    <MusicScore score={buildStandaloneScore([question.lower, question.upper])} label="音程五线谱" onNoteClick={onNoteClick} />
     <PlayWithInstrument label="▶ 重播" onPlay={onPlay}><div className="interval-control-groups"><div className="control-group"><span>播放</span><div className="segmented compact"><button type="button" aria-pressed={settings.playback === 'melodic'} className={settings.playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" aria-pressed={settings.playback === 'harmonic'} className={settings.playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></div><div className="control-group"><span>音名</span><div className="segmented compact"><button type="button" aria-pressed={!settings.showOctaves} className={!settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(false)}>C</button><button type="button" aria-pressed={settings.showOctaves} className={settings.showOctaves ? 'selected' : ''} onClick={() => onShowOctavesChange(true)}>C4</button></div></div></div></PlayWithInstrument>
     <div className="answer-grid" data-answer-scope={scopeId} onKeyDown={handleKeyDown}>{question.options.map((option, index) => {
       const state = !feedback ? '' : option.label === question.answer.label ? 'correct' : option.label === feedback.selected ? 'wrong' : 'muted'
@@ -80,30 +80,30 @@ export function IntervalExercise({ question, settings, feedback, preview, onAnsw
   </>
 }
 
-export function TriadFillExercise({ question, notation, playback, feedback, noteValues, activeSlot, onActiveSlotChange, onChange, onPlay, onPlaybackChange, onSubmit, onValuePlay }: { question: Extract<PracticeQuestion, { kind: 'triad-fill' | 'spread-triad-fill' }>; notation: AppSettings['chordNotation']; playback: AppSettings['triad']['playback']; feedback: AnswerFeedback | null; noteValues: string[]; activeSlot: number; onActiveSlotChange: (index: number) => void; onChange: (values: string[]) => void; onPlay: () => void; onPlaybackChange: (playback: AppSettings['triad']['playback']) => void; onSubmit: () => void; onValuePlay: (value: string, index: number) => void }) {
+export function TriadFillExercise({ question, notation, playback, feedback, noteValues, activeSlot, onActiveSlotChange, onChange, onPlay, onNoteClick, onPlaybackChange, onSubmit, onValuePlay }: { question: Extract<PracticeQuestion, { kind: 'triad-fill' | 'spread-triad-fill' }>; notation: AppSettings['chordNotation']; playback: AppSettings['triad']['playback']; feedback: AnswerFeedback | null; noteValues: string[]; activeSlot: number; onActiveSlotChange: (index: number) => void; onChange: (values: string[]) => void; onPlay: () => void; onNoteClick: (note: NoteSpelling) => void; onPlaybackChange: (playback: AppSettings['triad']['playback']) => void; onSubmit: () => void; onValuePlay: (value: string, index: number) => void }) {
   const spread = question.kind === 'spread-triad-fill'
   return <>
     <QuestionHeading eyebrow={spread ? '开放三和弦' : '密集三和弦'} title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={spread ? '听排列，从低到高写出三个音名。' : '听原位或转位，从低到高写出三个音名。'} />
     <PlayWithInstrument label="▶ 重播当前排列" onPlay={onPlay}><div className="segmented compact"><button type="button" aria-pressed={playback === 'melodic'} className={playback === 'melodic' ? 'selected' : ''} onClick={() => onPlaybackChange('melodic')}>旋律</button><button type="button" aria-pressed={playback === 'harmonic'} className={playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></PlayWithInstrument>
-    {feedback && <MusicScore score={buildStandaloneScore(question.notes)} label="三和弦谱面" />}
+    {feedback && <MusicScore score={buildStandaloneScore(question.notes)} label="三和弦谱面" onNoteClick={onNoteClick} />}
     <NoteKeyboard values={noteValues} correctValues={feedback ? question.answers : undefined} activeIndex={activeSlot} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={onActiveSlotChange} onChange={onChange} onValuePlay={feedback ? onValuePlay : undefined} onSubmit={onSubmit} />
     {feedback && <p className="note-play-hint">点击任一音名可试听。</p>}
     {!feedback && <button type="button" className="submit-button" disabled={noteValues.some((value) => !value)} onClick={onSubmit}>提交三个音名</button>}
   </>
 }
 
-export function ChordToneExercise({ question, notation, feedback, noteValues, onChange, onPlay, onSubmit }: { question: Extract<PracticeQuestion, { kind: 'chord-tone' }>; notation: AppSettings['chordNotation']; feedback: AnswerFeedback | null; noteValues: string[]; onChange: (values: string[]) => void; onPlay: () => void; onSubmit: () => void }) {
+export function ChordToneExercise({ question, notation, feedback, noteValues, onChange, onPlay, onNoteClick, onSubmit }: { question: Extract<PracticeQuestion, { kind: 'chord-tone' }>; notation: AppSettings['chordNotation']; feedback: AnswerFeedback | null; noteValues: string[]; onChange: (values: string[]) => void; onPlay: () => void; onNoteClick: (note: NoteSpelling) => void; onSubmit: () => void }) {
   const target = question.target === 'third' ? '三音' : '五音'
   return <>
     <QuestionHeading eyebrow="和弦成员音" title={<ChordSymbol chord={question.triad} notation={notation} />} subtitle={<>{'这个和弦的 '}<strong className="question-target">{target}</strong>{' 是什么？'}</>} />
     <PlayWithInstrument label="▶ 先听和弦，再听目标音" onPlay={onPlay} />
-    {feedback && <MusicScore score={buildStandaloneScore(question.notes, [question.targetIndex])} label="三和弦原位谱面，目标音已高亮" />}
+    {feedback && <MusicScore score={buildStandaloneScore(question.notes, [question.targetIndex])} label="三和弦原位谱面，目标音已高亮" onNoteClick={onNoteClick} />}
     <NoteKeyboard values={noteValues} correctValues={feedback ? [question.answer] : undefined} activeIndex={0} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={() => undefined} onChange={onChange} onSubmit={onSubmit} />
     {!feedback && <button type="button" className="submit-button" disabled={!noteValues[0]} onClick={onSubmit}>提交音名</button>}
   </>
 }
 
-export function SeventhVoicingExercise({ question, notation, playback, feedback, memberValues, activeSlot, onActiveSlotChange, onChange, onPlay, onPlaybackChange, onSubmit }: {
+export function SeventhVoicingExercise({ question, notation, playback, feedback, memberValues, activeSlot, onActiveSlotChange, onChange, onPlay, onNoteClick, onPlaybackChange, onSubmit }: {
   question: Extract<PracticeQuestion, { kind: 'drop2-voicing' | 'shell-voicing' }>
   notation: AppSettings['chordNotation']
   playback: AppSettings['seventh']['playback']
@@ -113,6 +113,7 @@ export function SeventhVoicingExercise({ question, notation, playback, feedback,
   onActiveSlotChange: (index: number) => void
   onChange: (values: string[]) => void
   onPlay: () => void
+  onNoteClick: (note: NoteSpelling) => void
   onPlaybackChange: (playback: AppSettings['seventh']['playback']) => void
   onSubmit: () => void
 }) {
@@ -120,7 +121,7 @@ export function SeventhVoicingExercise({ question, notation, playback, feedback,
   return <>
     <QuestionHeading eyebrow={drop2 ? 'DROP 2' : 'SHELL'} title={<ChordSymbol chord={question.chord} notation={notation} />} subtitle={drop2 ? '听和弦，按低到高填写根、三、五、七的顺序。' : '听和弦，按低到高填写根、三、七的顺序。'} />
     <PlayWithInstrument label="▶ 重播" onPlay={onPlay}><div className="segmented compact"><button type="button" aria-pressed={playback === 'arpeggio'} className={playback === 'arpeggio' ? 'selected' : ''} onClick={() => onPlaybackChange('arpeggio')}>琶音</button><button type="button" aria-pressed={playback === 'harmonic'} className={playback === 'harmonic' ? 'selected' : ''} onClick={() => onPlaybackChange('harmonic')}>和声</button></div></PlayWithInstrument>
-    {feedback && <><MusicScore score={buildStandaloneScore(question.notes)} label={`${drop2 ? 'Drop 2' : 'Shell'} 七和弦谱面`} /><p className="voicing-answer"><strong><ChordMemberSequence values={question.answer} /></strong><span><PitchSequence values={question.notes} /></span></p></>}
+    {feedback && <><MusicScore score={buildStandaloneScore(question.notes)} label={`${drop2 ? 'Drop 2' : 'Shell'} 七和弦谱面`} onNoteClick={onNoteClick} /><p className="voicing-answer"><strong><ChordMemberSequence values={question.answer} /></strong><span><PitchSequence values={question.notes} /></span></p></>}
     <ChordMemberKeyboard values={memberValues} correctValues={feedback ? question.answer : undefined} activeIndex={activeSlot} allowedMembers={drop2 ? ['R', '3', '5', '7'] : ['R', '3', '7']} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={onActiveSlotChange} onChange={onChange} onSubmit={onSubmit} />
     {!feedback && <button type="button" className="submit-button" disabled={memberValues.some((value) => !value)} onClick={onSubmit}>提交成员排列</button>}
   </>

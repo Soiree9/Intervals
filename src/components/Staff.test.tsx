@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeNote } from '../domain/music'
 import { buildStandaloneScore, type ScoreSpec } from '../domain/notation'
@@ -34,9 +34,21 @@ vi.mock('vexflow', () => {
     draw() { return this }
   }
   class StaveNote {
-    constructor(options: unknown) { vexflowCalls.staveNote(options) }
+    noteHeads: Array<{ getBoundingBox(): { getX(): number; getY(): number; getW(): number; getH(): number } }>
+    constructor(options: { keys: string[] }) {
+      vexflowCalls.staveNote(options)
+      this.noteHeads = options.keys.map((_, index) => ({
+        getBoundingBox: () => ({
+          getX: () => index === 1 ? 134 : 120,
+          getY: () => 72 - index * 12,
+          getW: () => 12,
+          getH: () => 16,
+        }),
+      }))
+    }
     addModifier() { return this }
     setKeyStyle() { return this }
+    getNoteHeadBounds() { return { yTop: 44, yBottom: 72 } }
   }
   class Voice {
     addTickables() { return this }
@@ -135,5 +147,27 @@ describe('MusicScore', () => {
     render(<MusicScore score={buildStandaloneScore([makeNote('F', 1, 4)])} label="独立音符" />)
     expect(vexflowCalls.keySignature).not.toHaveBeenCalled()
     expect(vexflowCalls.accidental).toHaveBeenCalledWith('#')
+  })
+
+  it('renders one focusable hit button per note head with a minimum touch size and reports the clicked note', () => {
+    const notes = [makeNote('C', 0, 4), makeNote('E', 0, 4)]
+    const onNoteClick = vi.fn()
+    render(<MusicScore score={buildStandaloneScore(notes)} label="可点击音程" onNoteClick={onNoteClick} />)
+
+    const buttons = screen.getAllByRole('button', { name: /^播放 / })
+    expect(buttons).toHaveLength(2)
+    expect(buttons[0]).toHaveAccessibleName('播放 C4')
+    expect(buttons[1]).toHaveAccessibleName('播放 E4')
+    expect(buttons[0]).toHaveStyle({ left: '116px', top: '70px', width: '20px', height: '20px' })
+    expect(buttons[1]).toHaveStyle({ left: '130px', top: '58px', width: '20px', height: '20px' })
+    fireEvent.click(buttons[1])
+    expect(onNoteClick).toHaveBeenCalledWith(notes[1])
+  })
+
+  it('does not render a hit layer without an onNoteClick callback', () => {
+    render(<MusicScore score={buildStandaloneScore([makeNote('C', 0, 4)])} label="只读谱面" />)
+
+    expect(document.querySelector('.staff-hit-layer')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^播放 / })).not.toBeInTheDocument()
   })
 })
