@@ -4,6 +4,7 @@ import { buildProgressionScore, buildScaleDegreeScore } from '../domain/notation
 import type {
   ChordNotation,
   ChordQuality,
+  NoteSpelling,
   PracticeQuestion,
   ProgressionQuestion,
   ScaleDegree,
@@ -28,7 +29,7 @@ const PROGRESSION_QUALITY_NAMES: Record<ChordQuality, string> = {
 
 const SCALE_DEGREES: ScaleDegree[] = [1, 2, 3, 4, 5, 6, 7]
 
-export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValues, exploringDegree, onNoteChange, onDegreeChange, onPlay, onExploreDegree, onSubmitNotes, onSubmitDegrees }: {
+export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValues, exploringDegree, onNoteChange, onDegreeChange, onPlay, onNoteClick, onExploreDegree, onSubmitNotes, onSubmitDegrees }: {
   question: Extract<PracticeQuestion, { kind: 'scale-degree' }>
   feedback: FeedbackState | null
   noteValues: string[]
@@ -37,6 +38,7 @@ export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValu
   onNoteChange: (values: string[]) => void
   onDegreeChange: (values: number[]) => void
   onPlay: () => void
+  onNoteClick: (note: NoteSpelling) => void
   onExploreDegree: (degree: ScaleDegree) => void
   onSubmitNotes: () => void
   onSubmitDegrees: () => void
@@ -46,7 +48,7 @@ export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValu
   return (
     <>
       <div className="question-heading"><div className="eyebrow">音名与音级</div><h1>{isForward ? <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是什么音？</> : <><PitchName value={question.key.tonic} /> 大调中的 <PitchName value={question.note} /> 是第几级？</>}</h1><p>先听 V–I，再听目标音。</p></div>
-      <MusicScore score={score} label="五级、一级与目标单音五线谱" />
+      <MusicScore score={score} label="五级、一级与目标单音五线谱" onNoteClick={onNoteClick} />
       <PlayWithInstrument label="▶ 重播 V–I 与目标音" onPlay={onPlay} />
       {isForward ? <>
         <NoteKeyboard values={noteValues} correctValues={feedback ? [pitchName(question.note)] : undefined} activeIndex={0} disabled={Boolean(feedback)} focusKey={question.id} onActiveIndexChange={() => undefined} onChange={onNoteChange} onSubmit={onSubmitNotes} />
@@ -60,7 +62,7 @@ export function ScaleDegreeExercise({ question, feedback, noteValues, degreeValu
   )
 }
 
-export function ProgressionExercise({ question, notation, feedback, noteValues, degreeValues, qualities, activeSlot, activeStep, onActiveSlotChange, onNoteChange, onQualityChange, onDegreeChange, onPlay, onSubmitNotes, onSubmitDegrees }: {
+export function ProgressionExercise({ question, notation, feedback, noteValues, degreeValues, qualities, activeSlot, activeStep, onActiveSlotChange, onNoteChange, onQualityChange, onDegreeChange, onPlay, onNoteClick, onSubmitNotes, onSubmitDegrees }: {
   question: ProgressionQuestion
   notation: ChordNotation
   feedback: FeedbackState | null
@@ -74,6 +76,7 @@ export function ProgressionExercise({ question, notation, feedback, noteValues, 
   onQualityChange: (qualities: ChordQuality[]) => void
   onDegreeChange: (values: number[]) => void
   onPlay: () => void
+  onNoteClick: (note: NoteSpelling) => void
   onSubmitNotes: () => void
   onSubmitDegrees: () => void
 }) {
@@ -103,7 +106,7 @@ export function ProgressionExercise({ question, notation, feedback, noteValues, 
   return (
     <>
       <div className="question-heading"><div className="eyebrow">和弦进行</div><h1><PitchName value={question.key.tonic} /> 大调 · 四小节进行</h1><p>{forward ? '根据级数写出每小节的和弦。' : '根据和弦符号，选择各小节的调内级数。'}</p></div>
-      <MusicScore score={score} label="四小节和弦进行五线谱" />
+      <MusicScore score={score} label="四小节和弦进行五线谱" onNoteClick={onNoteClick} />
       <PlayWithInstrument label="▶ 重播进行" onPlay={onPlay} />
       <div className="progression-grid">
         {question.chords.map((chord, index) => <button type="button" key={index} className={`progression-cell ${activeStep === index ? 'playing' : ''} ${activeSlot === index && !feedback ? 'active' : ''}`} onClick={() => !feedback && onActiveSlotChange(index)} data-note-entry-group={forward ? noteEntryGroupId : undefined} data-note-entry-slot={forward ? index : undefined} data-answer-scope-id={forward ? noteEntryGroupId : undefined} data-answer-slot={forward ? index : undefined} data-quiz-answer-control="true" tabIndex={forward && activeSlot === index && !feedback ? 0 : -1} aria-label={forward ? `第 ${index + 1} 个和弦音名：${noteValues[index] || '未填写'}` : undefined}>

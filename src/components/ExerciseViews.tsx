@@ -3,7 +3,10 @@ import {
   INVERSION_TEXT,
   explainInterval,
   pitchName,
-  triadFormula,
+  spreadTriadInversion,
+  spreadTriadMemberSequence,
+  spreadTriadSolfege,
+  triadIntervalStructure,
   triadMemberSequence,
   triadSolfege,
 } from '../domain/music'
@@ -155,15 +158,30 @@ export function FeedbackPanel({ question, notation, feedback, onReplay, onNext, 
       </span>
     </span>
   }
-  else if (question.kind === 'triad-fill') explanation = <span className="triad-feedback-details">
-    <span>根、三、五音是 <strong className="triad-feedback-value"><PitchSequence values={question.triad.tones} separator="-" /></strong>；</span>
-    <span>本题为<strong className="triad-feedback-value">{INVERSION_TEXT[question.inversion]}</strong>，音名为 <strong className="triad-feedback-value"><PitchSequence values={question.answers} separator="-" /></strong>；</span>
-    <span>从低到高是 <strong className="triad-feedback-value">{triadSolfege(question.triad.quality, question.inversion).replaceAll('–', '-')}</strong>；</span>
-    <span>音程关系是 <strong className="triad-feedback-value"><ChordMemberSequence values={triadMemberSequence(question.triad.quality, question.inversion).split('-')} /></strong>。</span>
+  else if (question.kind === 'triad-fill') explanation = <span className="chord-feedback-details">
+    <span>根、三、五音是 <strong className="chord-feedback-value"><PitchSequence values={question.triad.tones} separator="-" /></strong>；</span>
+    <span>本题为<strong className="chord-feedback-value">{INVERSION_TEXT[question.inversion]}</strong>，音名为 <strong className="chord-feedback-value"><PitchSequence values={question.answers} separator="-" /></strong>；</span>
+    <span>从低到高是 <strong className="chord-feedback-value">{triadSolfege(question.triad.quality, question.inversion).replaceAll('–', '-')}</strong>；</span>
+    <span>音程关系是 <strong className="chord-feedback-value"><ChordMemberSequence values={triadMemberSequence(question.triad.quality, question.inversion).split('-')} /></strong>。</span>
   </span>
-  else if (question.kind === 'spread-triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为 Spread {question.pattern}，低到高是 <PitchSequence values={question.answers} />。</>
-  else if (question.kind === 'chord-tone') explanation = <>{triadFormula(question.triad.quality)}；题目的{question.target === 'third' ? '三音' : '五音'}是 <PitchName value={question.answer} />。</>
-  else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <><ChordSymbol chord={question.chord} notation={notation} /> 由低到高是 <ChordMemberSequence values={question.answer} />（<PitchSequence values={question.notes} />）。</>
+  else if (question.kind === 'spread-triad-fill') explanation = <span className="chord-feedback-details">
+    <span>根、三、五音是 <strong className="chord-feedback-value"><PitchSequence values={question.triad.tones} separator="-" /></strong>；</span>
+    <span>本题为<strong className="chord-feedback-value">{INVERSION_TEXT[spreadTriadInversion(question.pattern)]}</strong>（Spread {question.pattern}），音名为 <strong className="chord-feedback-value"><PitchSequence values={question.answers} separator="-" /></strong>；</span>
+    <span>从低到高是 <strong className="chord-feedback-value">{spreadTriadSolfege(question.triad.quality, question.pattern).replaceAll('–', '-')}</strong>；</span>
+    <span>音程关系是 <strong className="chord-feedback-value"><ChordMemberSequence values={spreadTriadMemberSequence(question.triad.quality, question.pattern).split('-')} /></strong>。</span>
+  </span>
+  else if (question.kind === 'chord-tone') {
+    const intervals = triadIntervalStructure(question.triad.quality)
+    explanation = <span className="chord-feedback-details">
+      <span>内部：根–三音 <strong className="chord-feedback-value">{intervals.rootToThird}</strong>，三音–五音 <strong className="chord-feedback-value">{intervals.thirdToFifth}</strong>；</span>
+      <span>外框：根–五音 <strong className="chord-feedback-value">{intervals.rootToFifth}</strong>；</span>
+      <span>题目的{question.target === 'third' ? '三音' : '五音'}是 <strong className="chord-feedback-value"><PitchName value={question.answer} /></strong>。</span>
+    </span>
+  }
+  else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <span className="chord-feedback-details">
+    <span>排列是：<strong className="chord-feedback-value"><ChordMemberSequence values={question.answer} /></strong>；</span>
+    <span>组成音是：<strong className="chord-feedback-value"><PitchSequence values={question.notes} separator="-" /></strong>。</span>
+  </span>
   else if (question.kind === 'scale-degree') explanation = <><PitchName value={question.key.tonic} /> 大调第 {question.degree} 级是 <PitchName value={question.note} />；音名须按该调拼写。</>
   else explanation = <><PitchName value={question.key.tonic} /> 大调中：{question.chords.map((chord, index) => <span key={index}>{index > 0 && '，'}{chord.roman}=<ChordSymbol chord={chord} notation={notation} /></span>)}。</>
   return <div ref={panelRef} tabIndex={-1} className={`feedback-panel ${feedback.correct ? 'correct' : 'wrong'}`} role="status"><div className="feedback-title"><span>{feedback.correct ? '✓' : '!'}</span><strong>{feedback.correct ? '答对了' : '答案如下'}</strong></div>{feedback.enharmonic && <p className="enharmonic-note">音高相同，但音名拼写不对。</p>}<p>{explanation}</p><div className="feedback-actions"><button type="button" className="secondary-button" onClick={onReplay}>▶ 再听一次</button><button type="button" className="primary-button" onClick={onNext}>{isLast ? '查看本轮结果' : '下一题 →'}</button></div></div>

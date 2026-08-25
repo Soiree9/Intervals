@@ -13,6 +13,7 @@ import {
   makeNote,
   mod,
   pitchName,
+  spreadTriadOrder,
 } from './music'
 import { PROGRESSION_TEMPLATES } from './catalogs'
 import type { ProgressionTemplate } from './catalogs'
@@ -58,9 +59,9 @@ export const INTERVAL_LOWER_MIN_MIDI = 59 // B3
 export const INTERVAL_LOWER_MAX_MIDI = 65 // F4
 
 export const SPREAD_TRIAD_PATTERNS: Array<{ id: SpreadTriadPattern; order: [number, number, number] }> = [
-  { id: 'R53', order: [0, 2, 1] },
-  { id: '3R5', order: [1, 0, 2] },
-  { id: '53R', order: [2, 1, 0] },
+  { id: 'R53', order: spreadTriadOrder('R53') },
+  { id: '3R5', order: spreadTriadOrder('3R5') },
+  { id: '53R', order: spreadTriadOrder('53R') },
 ]
 
 export const DROP2_PATTERNS: Array<{ id: Drop2Pattern; order: [number, number, number, number] }> = [

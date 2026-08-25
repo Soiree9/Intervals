@@ -31,6 +31,7 @@
 .chord-member-symbol { display: inline-flex; align-items: baseline; line-height: 1; white-space: nowrap; }
 .music-accidental-member { margin-right: -.015em; font-size: .82em; transform: translateY(-.05em); }
 .chord-member-value { line-height: 1; }
+.chord-member-lining-figure { font-family: Cambria, "Times New Roman", serif; font-variant-numeric: lining-nums; font-style: normal; }
 .chord-member-sequence { display: inline-flex; align-items: baseline; white-space: nowrap; line-height: 1; }
 .chord-member-token { display: inline-flex; align-items: baseline; }
 .chord-member-separator { margin-inline: .15em; line-height: 1; }
@@ -258,8 +259,8 @@ legend small { color: var(--muted); font-weight: 450; }
 .interval-inversion-reason small { color: var(--muted); font-size: 11px; letter-spacing: .02em; }
 .interval-feedback-arrow { color: #9a9588; }
 .interval-feedback-result { padding: 0 6px; border-radius: 4px; color: #174c2a; background: #dcecdf; font-family: Cambria, "Times New Roman", serif; font-size: 1.06em; font-weight: 600; line-height: 1.45; white-space: nowrap; }
-.triad-feedback-details { display: grid; gap: 7px; }
-.triad-feedback-value { display: inline-block; padding: 0 5px; border-radius: 4px; color: #174c2a; background: #dcecdf; font-family: Cambria, "Times New Roman", serif; font-size: 1.06em; font-weight: 400; letter-spacing: .015em; line-height: 1.45; }
+.chord-feedback-details { display: grid; gap: 7px; }
+.chord-feedback-value { display: inline-block; padding: 0 5px; border-radius: 4px; color: #174c2a; background: #dcecdf; font-family: Cambria, "Times New Roman", serif; font-size: 1.06em; font-weight: 400; letter-spacing: .015em; line-height: 1.45; }
 .feedback-panel .feedback-shortcut-hint { margin: -5px 0 14px; color: var(--muted); font-size: 11px; text-align: right; }
 .feedback-actions { display: flex; justify-content: flex-end; gap: 9px; }
 

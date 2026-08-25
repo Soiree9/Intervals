@@ -6,6 +6,7 @@ import type {
   IntervalDegree,
   IntervalIdentity,
   IntervalQuality,
+  Inversion,
   Letter,
   MajorKey,
   NoteSpelling,
@@ -13,6 +14,7 @@ import type {
   ScaleDegree,
   SeventhChordIdentity,
   SeventhChordQuality,
+  SpreadTriadPattern,
   TriadIdentity,
   TriadQuality,
 } from './types'
@@ -388,6 +390,12 @@ export function chordMembers(quality: SeventhChordQuality): [ChordMember, ChordM
   return ['R', '♭3', '♭5', '♭7']
 }
 
+export function chordMemberLabel(member: string | ChordMember): string {
+  if (member === '3') return 'M3'
+  if (member === '7') return 'M7'
+  return member
+}
+
 export function formatChordSymbol(chord: { root: PitchSpelling; quality: ChordQuality }, notation: ChordNotation): string {
   const rootName = pitchName(chord.root)
   if (chord.quality === 'major') return rootName
@@ -399,32 +407,56 @@ export function formatChordSymbol(chord: { root: PitchSpelling; quality: ChordQu
   return `${rootName}${notation === 'symbol' ? 'ø7' : 'm7♭5'}`
 }
 
-export function triadFormula(quality: TriadQuality): string {
-  if (quality === 'major') return '大三和弦＝大三度＋纯五度'
-  if (quality === 'minor') return '小三和弦＝小三度＋纯五度'
-  return '减三和弦＝小三度＋减五度'
+export function triadIntervalStructure(quality: TriadQuality): { rootToThird: string; thirdToFifth: string; rootToFifth: string } {
+  if (quality === 'major') return { rootToThird: '大三度', thirdToFifth: '小三度', rootToFifth: '纯五度' }
+  if (quality === 'minor') return { rootToThird: '小三度', thirdToFifth: '大三度', rootToFifth: '纯五度' }
+  return { rootToThird: '小三度', thirdToFifth: '小三度', rootToFifth: '减五度' }
 }
 
-function rotateTriad<T>(values: [T, T, T], inversion: 0 | 1 | 2): [T, T, T] {
+function rotateTriad<T>(values: [T, T, T], inversion: Inversion): [T, T, T] {
   return [values[inversion], values[(inversion + 1) % 3], values[(inversion + 2) % 3]]
 }
 
-export function triadMemberSequence(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): string {
-  const rootPosition: [string, string, string] = quality === 'major'
+function triadMemberValues(quality: TriadQuality): [string, string, string] {
+  return quality === 'major'
     ? ['R', 'M3', '5']
     : quality === 'minor'
       ? ['R', '♭3', '5']
       : ['R', '♭3', '♭5']
-  return rotateTriad(rootPosition, inversion).join('-')
 }
 
-export function triadSolfege(quality: TriadQuality, inversion: 0 | 1 | 2 = 0): string {
-  const rootPosition: [string, string, string] = quality === 'major'
+function triadSolfegeValues(quality: TriadQuality): [string, string, string] {
+  return quality === 'major'
     ? ['Do', 'Mi', 'Sol']
     : quality === 'minor'
       ? ['Do', 'Me', 'Sol']
       : ['Do', 'Me', 'Se']
-  return rotateTriad(rootPosition, inversion).join('–')
+}
+
+export function spreadTriadOrder(pattern: SpreadTriadPattern): [Inversion, Inversion, Inversion] {
+  if (pattern === 'R53') return [0, 2, 1]
+  if (pattern === '3R5') return [1, 0, 2]
+  return [2, 1, 0]
+}
+
+export function spreadTriadInversion(pattern: SpreadTriadPattern): Inversion {
+  return spreadTriadOrder(pattern)[0]
+}
+
+export function triadMemberSequence(quality: TriadQuality, inversion: Inversion = 0): string {
+  return rotateTriad(triadMemberValues(quality), inversion).join('-')
+}
+
+export function triadSolfege(quality: TriadQuality, inversion: Inversion = 0): string {
+  return rotateTriad(triadSolfegeValues(quality), inversion).join('–')
+}
+
+export function spreadTriadMemberSequence(quality: TriadQuality, pattern: SpreadTriadPattern): string {
+  return spreadTriadOrder(pattern).map((index) => triadMemberValues(quality)[index]).join('-')
+}
+
+export function spreadTriadSolfege(quality: TriadQuality, pattern: SpreadTriadPattern): string {
+  return spreadTriadOrder(pattern).map((index) => triadSolfegeValues(quality)[index]).join('–')
 }
 
 export function pitchClassIsEnharmonic(left: string, right: string): boolean {

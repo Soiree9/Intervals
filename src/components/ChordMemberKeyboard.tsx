@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId } from 'react'
+import { chordMemberLabel } from '../domain/music'
 import type { ChordMember } from '../domain/types'
 import { activeAnswerSlot, focusAnswerSlot, isPlainHotkey, useCompleteAnswerSubmit, wraps } from './answerHotkeys'
 import { ChordMemberSymbol, MusicAccidental } from './MusicText'
@@ -118,7 +119,7 @@ export function ChordMemberKeyboard({
             data-answer-slot={index}
             data-quiz-answer-control="true"
             tabIndex={activeIndex === index && !disabled ? 0 : -1}
-            aria-label={`第 ${index + 1} 个成员：${value || '未填写'}`}
+            aria-label={`第 ${index + 1} 个成员：${value ? chordMemberLabel(value) : '未填写'}`}
           >
             {value ? <ChordMemberSymbol value={value} /> : '—'}
           </button>

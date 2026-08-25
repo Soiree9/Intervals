@@ -1,4 +1,4 @@
-import { parsePitchName, pitchName } from '../domain/music'
+import { chordMemberLabel, parsePitchName, pitchName } from '../domain/music'
 import { TEXT_ACCIDENTAL_GLYPHS } from '../domain/smufl'
 import type { ChordMember, NoteSpelling, PitchSpelling } from '../domain/types'
 
@@ -62,10 +62,12 @@ export function StepFormula({ steps }: { steps: readonly ('whole' | 'half')[] })
 }
 
 export function ChordMemberSymbol({ value }: { value: string | ChordMember }) {
-  const flat = value.startsWith('♭')
-  return <span className="chord-member-symbol" aria-label={value}>
+  const label = chordMemberLabel(value)
+  const flat = label.startsWith('♭')
+  const memberValue = label.replace('♭', '')
+  return <span className="chord-member-symbol" aria-label={label}>
     {flat && <MusicAccidental value="♭" context="member" />}
-    <span className="chord-member-value" aria-hidden="true">{value.replace('♭', '')}</span>
+    <span className={`chord-member-value ${memberValue === '5' ? 'chord-member-lining-figure' : ''}`} aria-hidden="true">{memberValue}</span>
   </span>
 }
 

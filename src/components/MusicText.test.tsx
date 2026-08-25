@@ -44,6 +44,22 @@ describe('semantic music text', () => {
     expect(document.querySelectorAll('.chord-member-separator')).toHaveLength(2)
   })
 
+  it('labels natural thirds and sevenths as major members', () => {
+    render(<ChordMemberSequence values={['R', '7', '♭7', '3', '♭3', '5', '♭5']} />)
+
+    expect(screen.getByLabelText('M7')).toHaveTextContent('M7')
+    expect(screen.getByLabelText('M3')).toHaveTextContent('M3')
+    expect(screen.getByLabelText('♭7')).toBeInTheDocument()
+    expect(screen.getByLabelText('♭3')).toBeInTheDocument()
+  })
+
+  it('marks the standalone fifth for a lining numeral without changing other member labels', () => {
+    render(<ChordMemberSequence values={['M7', 'M3', '5', 'R']} />)
+
+    expect(screen.getByLabelText('5').querySelector('.chord-member-value')).toHaveClass('chord-member-lining-figure')
+    expect(screen.getByLabelText('M3').querySelector('.chord-member-value')).not.toHaveClass('chord-member-lining-figure')
+  })
+
   it('renders symbol major seventh with chord-specific Bravura glyphs', () => {
     render(<ChordSymbol chord={{ root: parsePitchName('D♭'), quality: 'major7' }} notation="symbol" />)
     const chord = screen.getByLabelText('D♭△')

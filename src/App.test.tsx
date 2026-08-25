@@ -213,6 +213,16 @@ describe('App quiz navigation and triad playback', () => {
     fireEvent.click(screen.getByRole('button', { name: '音级 → 音名' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     expect(await screen.findByRole('img', { name: '五级、一级与目标单音五线谱' })).toBeInTheDocument()
+    const noteButton = (await screen.findAllByRole('button', { name: /^播放 [A-G]/ }))[0]
+    const displayName = noteButton.getAttribute('aria-label')?.replace('播放 ', '')
+    vi.clearAllMocks()
+
+    fireEvent.click(noteButton)
+
+    await waitFor(() => expect(audio.playImmediateNote).toHaveBeenCalledWith(
+      expect.objectContaining({ displayName }),
+      'piano',
+    ))
   })
 
   it('shows all four played voicings on the progression staff', async () => {
@@ -222,5 +232,15 @@ describe('App quiz navigation and triad playback', () => {
     fireEvent.click(screen.getByRole('button', { name: '音级 → 音名' }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
     expect(await screen.findByRole('img', { name: '四小节和弦进行五线谱' })).toBeInTheDocument()
+    const noteButton = (await screen.findAllByRole('button', { name: /^播放 [A-G]/ }))[0]
+    const displayName = noteButton.getAttribute('aria-label')?.replace('播放 ', '')
+    vi.clearAllMocks()
+
+    fireEvent.click(noteButton)
+
+    await waitFor(() => expect(audio.playImmediateNote).toHaveBeenCalledWith(
+      expect.objectContaining({ displayName }),
+      'piano',
+    ))
   })
 })

@@ -7,10 +7,15 @@ import {
   buildMajorKey,
   buildSeventhChord,
   buildTriad,
+  chordMemberLabel,
   formatChordSymbol,
   explainInterval,
   makeNote,
   pitchName,
+  spreadTriadInversion,
+  spreadTriadMemberSequence,
+  spreadTriadSolfege,
+  triadIntervalStructure,
   triadMemberSequence,
   triadSolfege,
 } from './music'
@@ -103,6 +108,28 @@ describe('major keys and diatonic triads', () => {
     expect(triadMemberSequence('major', 1)).toBe('M3-5-R')
     expect(triadMemberSequence('minor', 2)).toBe('5-R-♭3')
     expect(triadMemberSequence('diminished', 0)).toBe('R-♭3-♭5')
+  })
+
+  it('describes spread triads by bass-note inversion and low-to-high order', () => {
+    expect(spreadTriadInversion('R53')).toBe(0)
+    expect(spreadTriadInversion('3R5')).toBe(1)
+    expect(spreadTriadInversion('53R')).toBe(2)
+    expect(spreadTriadMemberSequence('major', 'R53')).toBe('R-5-M3')
+    expect(spreadTriadMemberSequence('minor', '3R5')).toBe('♭3-R-5')
+    expect(spreadTriadMemberSequence('diminished', '53R')).toBe('♭5-♭3-R')
+    expect(spreadTriadSolfege('major', 'R53')).toBe('Do–Sol–Mi')
+  })
+
+  it('uses one display rule for natural and lowered chord members', () => {
+    expect(['R', '7', '♭7', '3', '♭3', '5', '♭5'].map(chordMemberLabel)).toEqual([
+      'R', 'M7', '♭7', 'M3', '♭3', '5', '♭5',
+    ])
+  })
+
+  it('describes the two stacked thirds and the outer fifth of each triad quality', () => {
+    expect(triadIntervalStructure('major')).toEqual({ rootToThird: '大三度', thirdToFifth: '小三度', rootToFifth: '纯五度' })
+    expect(triadIntervalStructure('minor')).toEqual({ rootToThird: '小三度', thirdToFifth: '大三度', rootToFifth: '纯五度' })
+    expect(triadIntervalStructure('diminished')).toEqual({ rootToThird: '小三度', thirdToFifth: '小三度', rootToFifth: '减五度' })
   })
 })
 
