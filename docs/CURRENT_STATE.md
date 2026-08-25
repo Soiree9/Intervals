@@ -8,8 +8,9 @@ Last inspected: 2026-08-25
 
 - `package.json` 当前版本：`0.8.0`。
 - `CHANGELOG.md` 最新条目：`V0.8.0`，音程教学反馈、音乐符号与即时试听。
-- 本地 `main`：`b1d9dcb630617cad6a2eb0d62513f020490f9247`。
-- V0.8.0 发布候选正在合并到 `main`；远端 commit、Pages workflow、稳定 URL 与 GitHub Release 必须在 push 后实际验证，验证完成前不能宣称已经在线发布。
+- V0.8.0 代码与标签提交：`adb8c0896234934225232e2bf7819e9a5f2fe8a4`。
+- 正式标签：`v0.8.0`；GitHub Release：[`V0.8.0：音程教学反馈、音乐符号与即时试听`](https://github.com/Soiree9/Intervals/releases/tag/v0.8.0)，已标记为 Latest。
+- GitHub Pages workflow [`32830283356`](https://github.com/Soiree9/Intervals/actions/runs/32830283356) 已成功；稳定网址 [`https://soiree9.github.io/Intervals/`](https://soiree9.github.io/Intervals/) 已实际打开验证。
 
 对外功能清单见 [`../README.md`](../README.md)。
 
@@ -31,25 +32,17 @@ Last inspected: 2026-08-25
 
 ## 开发中
 
-当前分支：`feat/clickable-staff`
+当前分支：`main`。
 
-当前 `HEAD`：`3608adf4702c94b51725809862be6bbb6a673b1a`（“五线谱音符点击播放单音”）。该提交让调模块以外的练习谱面支持点击音符头播放对应单音，并为命中区域增加了独立纯模块与测试。它尚未进入现有 `CHANGELOG.md` 的发布记录。
-
-工作树当前有一组已完成本地验证、尚未提交或发布的源码与测试修改：
-
-- 五线谱音符采用指针按下立即触发单音，减少触控与鼠标点击后的起音等待。
-- 三和弦反馈改为分行显示根、三、五音、转位、实际音名、唱名与成员关系；成员关系按 `M3 / ♭3 / ♭5` 表达并随转位旋转。
-- 音程反馈按度数、全音/半音结构、四五度变化或六七度转位关系给出简短解释，并加入视觉层级与对齐。
-- 非谱面音名、和弦根音、重升重降与成员升降号统一进入共享 SMuFL 文本组件；音名及成员序列的短横线保留稳定留白。
-- `AGENTS.md` 与 `docs/` 是新增的项目维护体系，当前仍未被 Git 跟踪；下次获得 commit/push 授权时必须作为明确路径审查和暂存，不能只提交源码。
-
-以上是本地开发状态，不是完成发布声明。后续 AI 仍需重新运行 `git status` 并检查实际 diff。
+V0.8.0 的源码、测试、`AGENTS.md`、`docs/`、版本号与时间线均已进入 Git，并完成远端、Pages 与 Release 验证。当前没有已批准但尚未发布的功能；后续 AI 仍需重新运行 `git status` 并检查实际 diff，不能只依赖本快照。
 
 ## 验证状态
 
-- 2026-08-25，最新 `npm.cmd run check` 通过：lint、17 个测试文件共 132 项测试，以及 TypeScript/Vite/PWA 生产构建。
+- 2026-08-25，使用 Node `v24.15.0`、npm `11.12.1` 完成干净 `npm.cmd ci`；随后 `npm.cmd run check` 通过 lint、17 个测试文件共 132 项测试，以及 TypeScript/Vite/PWA 生产构建。
 - 已在真实本地页面检查桌面与窄屏布局、和弦根音升降号、`F♯ - A - C` 音名间距、`♭3 - ♭5 - R` 成员标记，以及五线谱指针按下播放路径。
-- 本轮没有执行 commit、push、GitHub Actions 或 Pages 在线验证；这些改动仍不得写入 `CHANGELOG.md` 或描述为已发布。
+- 首次 workflow [`32829232513`](https://github.com/Soiree9/Intervals/actions/runs/32829232513) 暴露锁文件版本字段不一致；修正 `dom-accessibility-api` 的锁文件版本后，本地干净安装与 workflow `32830283356` 均通过。
+- 稳定网址已加载本次生产资源 `index-CUVxECrG.js` 与 `index-BMpSV_jp.css`；首页、和弦入口和三和弦设置页均在真实线上页面打开，标准升降号显示正常。
+- 远端 `main`、`v0.8.0` 标签、Latest Release 与 GitHub Pages 均已核对，不再属于“仅本地完成”。
 
 ## 已确认的下一步
 
