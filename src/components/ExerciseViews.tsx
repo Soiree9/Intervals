@@ -1,16 +1,17 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import {
   INVERSION_TEXT,
+  explainInterval,
   pitchName,
   triadFormula,
   triadMemberSequence,
   triadSolfege,
 } from '../domain/music'
 import { buildStandaloneScore } from '../domain/notation'
-import type { AppSettings, IntervalIdentity, IntervalQuestion, IntervalSettings, NoteSpelling, PitchSpelling, PracticeQuestion } from '../domain/types'
+import type { AppSettings, IntervalIdentity, IntervalQuestion, IntervalSettings, NoteSpelling, PracticeQuestion } from '../domain/types'
 import { ChordMemberKeyboard } from './ChordMemberKeyboard'
 import { ChordSymbol } from './ChordSymbol'
-import { ChordMemberSequence, PitchName } from './MusicText'
+import { ChordMemberSequence, PitchName, PitchSequence, StepFormula } from './MusicText'
 import { NoteKeyboard } from './NoteKeyboard'
 import { PlayWithInstrument } from './PlaybackControls'
 import { MusicScore } from './Staff'
@@ -29,10 +30,6 @@ export interface IntervalPreview {
 
 function visibleNoteName(note: NoteSpelling, showOctaves: boolean): string {
   return showOctaves ? note.displayName : pitchName(note)
-}
-
-function PitchSequence({ values, separator = '–' }: { values: readonly (string | PitchSpelling | NoteSpelling)[]; separator?: string }) {
-  return <>{values.map((value, index) => <span key={`${typeof value === 'string' ? value : pitchName(value)}-${index}`}>{index > 0 && separator}<PitchName value={value} /></span>)}</>
 }
 
 export function QuestionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: ReactNode; subtitle: ReactNode }) {
@@ -131,8 +128,39 @@ export function FeedbackPanel({ question, notation, feedback, onReplay, onNext, 
   const panelRef = useRef<HTMLDivElement>(null)
   useEffect(() => panelRef.current?.focus({ preventScroll: true }), [question.id])
   let explanation: ReactNode = ''
-  if (question.kind === 'interval') explanation = `${question.lower.letter} 到 ${question.upper.letter} 是 ${question.answer.degree} 度，相隔 ${question.answer.semitones} 个半音，所以是${question.answer.label}。`
-  else if (question.kind === 'triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} separator="-" />；本题为{INVERSION_TEXT[question.inversion]}，音名为 <PitchSequence values={question.answers} separator="-" />，从低到高是 {triadSolfege(question.triad.quality, question.inversion).replaceAll('–', '-')}，音程关系是 {triadMemberSequence(question.triad.quality, question.inversion)}。</>
+  if (question.kind === 'interval') {
+    const interval = explainInterval(question.lower, question.upper, question.answer)
+    explanation = <span className="interval-feedback-details">
+      <span className="interval-feedback-line">
+        <span className="interval-feedback-label">度数</span>
+        <span className="interval-feedback-reason"><PitchSequence values={interval.degreePath} spacious /></span>
+        <span className="interval-feedback-arrow">→</span>
+        <strong className="interval-feedback-result">{interval.degreeLabel}</strong>
+      </span>
+      <span className={`interval-feedback-line ${interval.reference ? 'interval-feedback-line-stacked' : ''}`}>
+        <span className="interval-feedback-label">判断</span>
+        <span className="interval-feedback-reason">
+          {interval.steps ? <StepFormula steps={interval.steps} /> : interval.inversion ? <span className="interval-inversion-reason">
+            <span>转位 <PitchSequence values={interval.inversion.notes} spacious />：</span>
+            <span>{interval.inversion.label}</span>
+            <small>{interval.inversion.formula}</small>
+            <small>{interval.inversion.qualities}</small>
+          </span> : interval.reference ? <span className="interval-alteration-reason">
+            <span><PitchSequence values={interval.reference} spacious />{' '}{interval.referenceLabel}</span>
+            <small>{interval.method}{interval.tritone && ' → 三全音'}</small>
+          </span> : <>{interval.method}</>}
+        </span>
+        <span className="interval-feedback-arrow">→</span>
+        <strong className="interval-feedback-result">{interval.result}</strong>
+      </span>
+    </span>
+  }
+  else if (question.kind === 'triad-fill') explanation = <span className="triad-feedback-details">
+    <span>根、三、五音是 <strong className="triad-feedback-value"><PitchSequence values={question.triad.tones} separator="-" /></strong>；</span>
+    <span>本题为<strong className="triad-feedback-value">{INVERSION_TEXT[question.inversion]}</strong>，音名为 <strong className="triad-feedback-value"><PitchSequence values={question.answers} separator="-" /></strong>；</span>
+    <span>从低到高是 <strong className="triad-feedback-value">{triadSolfege(question.triad.quality, question.inversion).replaceAll('–', '-')}</strong>；</span>
+    <span>音程关系是 <strong className="triad-feedback-value"><ChordMemberSequence values={triadMemberSequence(question.triad.quality, question.inversion).split('-')} /></strong>。</span>
+  </span>
   else if (question.kind === 'spread-triad-fill') explanation = <>根、三、五音是 <PitchSequence values={question.triad.tones} />；本题为 Spread {question.pattern}，低到高是 <PitchSequence values={question.answers} />。</>
   else if (question.kind === 'chord-tone') explanation = <>{triadFormula(question.triad.quality)}；题目的{question.target === 'third' ? '三音' : '五音'}是 <PitchName value={question.answer} />。</>
   else if (question.kind === 'drop2-voicing' || question.kind === 'shell-voicing') explanation = <><ChordSymbol chord={question.chord} notation={notation} /> 由低到高是 <ChordMemberSequence values={question.answer} />（<PitchSequence values={question.notes} />）。</>

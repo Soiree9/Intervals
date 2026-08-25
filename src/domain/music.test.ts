@@ -8,6 +8,7 @@ import {
   buildSeventhChord,
   buildTriad,
   formatChordSymbol,
+  explainInterval,
   makeNote,
   pitchName,
   triadMemberSequence,
@@ -24,6 +25,46 @@ describe('interval analysis', () => {
     [makeNote('C', 1, 4), makeNote('G', 0, 4), 6],
   ])('uses spelling instead of pitch alone', (lower, upper, semitones) => {
     expect(analyzeInterval(lower, upper)).toMatchObject({ semitones })
+  })
+
+  it('chooses a concise degree-specific explanation', () => {
+    const minorThird = [makeNote('D', 0, 4), makeNote('F', 0, 4)] as const
+    expect(explainInterval(...minorThird, analyzeInterval(...minorThird))).toMatchObject({
+      degreeLabel: '三度',
+      steps: ['whole', 'half'],
+      result: '小三度',
+    })
+    expect(explainInterval(...minorThird, analyzeInterval(...minorThird)).degreePath.map(pitchName)).toEqual(['D', 'E', 'F'])
+
+    const majorThird = [makeNote('C', 0, 4), makeNote('E', 0, 4)] as const
+    expect(explainInterval(...majorThird, analyzeInterval(...majorThird)).steps).toEqual(['whole', 'whole'])
+
+    const augmentedFourth = [makeNote('E', -1, 4), makeNote('A', 0, 4)] as const
+    expect(explainInterval(...augmentedFourth, analyzeInterval(...augmentedFourth))).toMatchObject({
+      method: '音程扩大半音',
+      referenceLabel: '纯四度',
+      tritone: true,
+      result: '增四度',
+    })
+    expect(explainInterval(...augmentedFourth, analyzeInterval(...augmentedFourth)).degreePath.map(pitchName)).toEqual(['E♭', 'F', 'G', 'A'])
+    expect(explainInterval(...augmentedFourth, analyzeInterval(...augmentedFourth)).reference?.map(pitchName)).toEqual(['E', 'A'])
+
+    const matchingFlats = [makeNote('E', -1, 4), makeNote('B', -1, 4)] as const
+    expect(explainInterval(...matchingFlats, analyzeInterval(...matchingFlats))).toMatchObject({
+      method: '两个音都降半音，音程不变',
+      referenceLabel: '纯五度',
+      result: '纯五度',
+    })
+
+    const majorSeventh = [makeNote('F', 0, 4), makeNote('E', 0, 5)] as const
+    expect(explainInterval(...majorSeventh, analyzeInterval(...majorSeventh))).toMatchObject({
+      result: '大七度',
+      inversion: {
+        label: '小二度',
+        formula: '七＋二＝九；',
+        qualities: '小 ↔ 大',
+      },
+    })
   })
 })
 
@@ -60,8 +101,8 @@ describe('major keys and diatonic triads', () => {
 
   it('describes triad members with quality-aware intervals', () => {
     expect(triadMemberSequence('major', 1)).toBe('M3-5-R')
-    expect(triadMemberSequence('minor', 2)).toBe('5-R-m3')
-    expect(triadMemberSequence('diminished', 0)).toBe('R-m3-♭5')
+    expect(triadMemberSequence('minor', 2)).toBe('5-R-♭3')
+    expect(triadMemberSequence('diminished', 0)).toBe('R-♭3-♭5')
   })
 })
 

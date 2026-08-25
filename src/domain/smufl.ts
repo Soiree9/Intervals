@@ -16,7 +16,7 @@ export const ACCIDENTAL_GLYPHS: Record<string, string> = {
   bbb: '\uE266',
 }
 
-export const CHORD_ACCIDENTAL_GLYPHS: Record<string, string> = {
+export const TEXT_ACCIDENTAL_GLYPHS: Record<string, string> = {
   '♭': '\uED60',
   b: '\uED60',
   '♮': '\uED61',
@@ -33,6 +33,8 @@ export const CHORD_ACCIDENTAL_GLYPHS: Record<string, string> = {
   '♭♭♭': '\uED66',
   bbb: '\uED66',
 }
+
+export const CHORD_ACCIDENTAL_GLYPHS = TEXT_ACCIDENTAL_GLYPHS
 
 export const SMUFL_CHORD_GLYPHS = {
   diminished: '\uE870',

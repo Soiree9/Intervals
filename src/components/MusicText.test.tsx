@@ -1,28 +1,47 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { parsePitchName } from '../domain/music'
-import { ACCIDENTAL_GLYPHS, CHORD_ACCIDENTAL_GLYPHS, SMUFL_CHORD_GLYPHS } from '../domain/smufl'
+import { CHORD_ACCIDENTAL_GLYPHS, SMUFL_CHORD_GLYPHS, TEXT_ACCIDENTAL_GLYPHS } from '../domain/smufl'
 import { ChordSymbol } from './ChordSymbol'
-import { PitchName } from './MusicText'
+import { ChordMemberSequence, PitchName, PitchSequence, StepFormula } from './MusicText'
 
 describe('semantic music text', () => {
   it('keeps plain pitch text for accessibility while rendering a SMuFL accidental', () => {
     render(<PitchName value="A♭4" />)
     const pitch = screen.getByLabelText('A♭4')
-    expect(pitch).toHaveTextContent(`A${ACCIDENTAL_GLYPHS['♭']}4`)
+    expect(pitch).toHaveTextContent(`A${TEXT_ACCIDENTAL_GLYPHS['♭']}4`)
     expect(pitch).not.toHaveTextContent('♭')
   })
 
   it('renders double and triple accidentals as single standard SMuFL glyphs', () => {
     const { rerender } = render(<PitchName value="B♭♭4" />)
-    expect(screen.getByLabelText('B♭♭4')).toHaveTextContent(`B${ACCIDENTAL_GLYPHS['♭♭']}4`)
+    expect(screen.getByLabelText('B♭♭4')).toHaveTextContent(`B${TEXT_ACCIDENTAL_GLYPHS['♭♭']}4`)
     expect(screen.getByLabelText('B♭♭4').querySelectorAll('.music-accidental')).toHaveLength(1)
 
     rerender(<PitchName value="F♯♯4" />)
-    expect(screen.getByLabelText('F♯♯4')).toHaveTextContent(`F${ACCIDENTAL_GLYPHS['♯♯']}4`)
+    expect(screen.getByLabelText('F♯♯4')).toHaveTextContent(`F${TEXT_ACCIDENTAL_GLYPHS['♯♯']}4`)
 
     rerender(<PitchName value="E♭♭♭5" />)
-    expect(screen.getByLabelText('E♭♭♭5')).toHaveTextContent(`E${ACCIDENTAL_GLYPHS['♭♭♭']}5`)
+    expect(screen.getByLabelText('E♭♭♭5')).toHaveTextContent(`E${TEXT_ACCIDENTAL_GLYPHS['♭♭♭']}5`)
+  })
+
+  it('can space a short pitch separator and renders labeled whole/half-step marks', () => {
+    const { rerender } = render(<PitchSequence values={[parsePitchName('E♭'), parsePitchName('F')]} />)
+    expect(screen.getByText('-')).toHaveClass('pitch-sequence-separator', 'spacious')
+
+    rerender(<StepFormula steps={['whole', 'half']} />)
+    expect(screen.getByLabelText('全音加半音')).toBeInTheDocument()
+    expect(document.querySelector('.step-unit-whole .step-unit-half-frame')).toBeInTheDocument()
+    expect(document.querySelector('.step-unit-half .step-unit-half-frame')).toBeInTheDocument()
+  })
+
+  it('renders altered chord members as compact music symbols with short spaced separators', () => {
+    render(<ChordMemberSequence values={['♭5', 'R', '♭3']} />)
+
+    expect(screen.getByLabelText('♭5')).toHaveTextContent(`${TEXT_ACCIDENTAL_GLYPHS['♭']}5`)
+    expect(screen.getByLabelText('♭3')).toHaveTextContent(`${TEXT_ACCIDENTAL_GLYPHS['♭']}3`)
+    expect(screen.getAllByText('-')).toHaveLength(2)
+    expect(document.querySelectorAll('.chord-member-separator')).toHaveLength(2)
   })
 
   it('renders symbol major seventh with chord-specific Bravura glyphs', () => {

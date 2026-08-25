@@ -8,6 +8,7 @@ const audio = vi.hoisted(() => ({
   initializeAudio: vi.fn(async () => 'piano' as const),
   playCadenceThenTone: vi.fn(async () => 'piano' as const),
   playChordThenTone: vi.fn(async () => 'piano' as const),
+  playImmediateNote: vi.fn(async () => 'piano' as const),
   playNotes: vi.fn(async () => 'piano' as const),
   playProgression: vi.fn(async () => 'piano' as const),
   stopAudio: vi.fn(),
@@ -108,7 +109,7 @@ describe('App quiz navigation and triad playback', () => {
     await waitFor(() => expect(screen.getByText('2 / 10')).toBeInTheDocument())
   })
 
-  it('stops current audio and plays the clicked interval staff note with the selected instrument', async () => {
+  it('plays the clicked interval staff note immediately with the selected instrument', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: /开始设置/ }))
     fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
@@ -120,13 +121,11 @@ describe('App quiz navigation and triad playback', () => {
 
     fireEvent.click(noteButton)
 
-    await waitFor(() => expect(audio.playNotes).toHaveBeenCalledWith(
-      [expect.objectContaining({ displayName })],
-      'harmonic',
+    await waitFor(() => expect(audio.playImmediateNote).toHaveBeenCalledWith(
+      expect.objectContaining({ displayName }),
       'piano',
     ))
-    expect(audio.stopAudio).toHaveBeenCalledOnce()
-    expect(audio.stopAudio.mock.invocationCallOrder[0]).toBeLessThan(audio.playNotes.mock.invocationCallOrder[0])
+    expect(audio.stopAudio).not.toHaveBeenCalled()
   })
 
   it('accepts number and Enter hotkeys for a reverse scale-degree answer', async () => {

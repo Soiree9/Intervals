@@ -40,6 +40,7 @@ import {
   SEQUENTIAL_START_LEAD_SECONDS,
   playCadenceThenTone,
   playChordThenTone,
+  playImmediateNote,
   playNotes,
   playProgression,
   stopAudio,
@@ -102,6 +103,13 @@ describe('cancelable audio playback', () => {
     await playNotes(chord, 'harmonic')
     expect(audioMocks.attack).toHaveBeenCalledTimes(4)
     expect(audioMocks.attack.mock.calls.at(-1)?.[0]).toHaveLength(3)
+  })
+
+  it('plays a clicked staff note at the current audio time without a start buffer', async () => {
+    await playImmediateNote(chord[0])
+
+    expect(audioMocks.attack).toHaveBeenCalledOnce()
+    expect(audioMocks.attack).toHaveBeenCalledWith(60, 0.8, 10)
   })
 
   it('keeps melodic attacks evenly spaced after a short start buffer', async () => {

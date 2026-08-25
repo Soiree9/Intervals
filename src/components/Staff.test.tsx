@@ -149,7 +149,7 @@ describe('MusicScore', () => {
     expect(vexflowCalls.accidental).toHaveBeenCalledWith('#')
   })
 
-  it('renders one focusable hit button per note head with a minimum touch size and reports the clicked note', () => {
+  it('renders one focusable hit button per note head and plays on pointer down without a duplicate click', () => {
     const notes = [makeNote('C', 0, 4), makeNote('E', 0, 4)]
     const onNoteClick = vi.fn()
     render(<MusicScore score={buildStandaloneScore(notes)} label="可点击音程" onNoteClick={onNoteClick} />)
@@ -160,7 +160,13 @@ describe('MusicScore', () => {
     expect(buttons[1]).toHaveAccessibleName('播放 E4')
     expect(buttons[0]).toHaveStyle({ left: '116px', top: '70px', width: '20px', height: '20px' })
     expect(buttons[1]).toHaveStyle({ left: '130px', top: '58px', width: '20px', height: '20px' })
-    fireEvent.click(buttons[1])
+    fireEvent.pointerDown(buttons[1], { button: 0, pointerType: 'mouse' })
+    expect(onNoteClick).toHaveBeenCalledWith(notes[1])
+    fireEvent.click(buttons[1], { detail: 1 })
+    expect(onNoteClick).toHaveBeenCalledOnce()
+
+    onNoteClick.mockClear()
+    fireEvent.click(buttons[1], { detail: 0 })
     expect(onNoteClick).toHaveBeenCalledWith(notes[1])
   })
 

@@ -46,7 +46,7 @@ import type {
   ScaleDegree,
   WrongItem,
 } from './domain/types'
-import { initializeAudio, playNotes, stopAudio, type AudioSource } from './services/audio'
+import { initializeAudio, playImmediateNote, playNotes, stopAudio, type AudioSource } from './services/audio'
 import { playPracticeQuestion } from './services/practicePlayback'
 import {
   loadLastOrder,
@@ -363,8 +363,7 @@ function App() {
   }
 
   const playStaffNote = async (note: NoteSpelling) => {
-    stopAudio()
-    setAudioSource(await playNotes([note], 'harmonic', settings.instrument))
+    setAudioSource(await playImmediateNote(note, settings.instrument))
   }
 
   const nextQuestion = () => {

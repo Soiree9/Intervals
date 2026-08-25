@@ -115,6 +115,98 @@ export function intervalLabel(degree: IntervalDegree, quality: IntervalQuality):
   return `${QUALITY_TEXT[quality]}${degreeText}度`
 }
 
+export interface IntervalExplanation {
+  degreePath: PitchSpelling[]
+  degreeLabel: string
+  method?: string
+  steps?: Array<'whole' | 'half'>
+  reference?: [PitchSpelling, PitchSpelling]
+  referenceLabel?: string
+  result: string
+  tritone?: boolean
+  inversion?: {
+    notes: [PitchSpelling, PitchSpelling]
+    label: string
+    formula: string
+    qualities: string
+  }
+}
+
+const INVERTED_INTERVAL_QUALITY: Record<IntervalQuality, IntervalQuality> = {
+  diminished: 'augmented',
+  minor: 'major',
+  major: 'minor',
+  perfect: 'perfect',
+  augmented: 'diminished',
+}
+
+export function explainInterval(lower: NoteSpelling, upper: NoteSpelling, answer: IntervalIdentity): IntervalExplanation {
+  const lowerIndex = LETTERS.indexOf(lower.letter)
+  const degreeText = ['一', '二', '三', '四', '五', '六', '七'][answer.degree - 1]
+  const degreePath = Array.from({ length: answer.degree }, (_, index): PitchSpelling => ({
+    letter: LETTERS[(lowerIndex + index) % LETTERS.length],
+    accidental: index === 0 ? lower.accidental : index === answer.degree - 1 ? upper.accidental : 0,
+  }))
+  const degreeLabel = `${degreeText}度`
+  const result = answer.label
+
+  if (answer.degree === 2) {
+    return { degreePath, degreeLabel, steps: [answer.semitones === 1 ? 'half' : 'whole'], result }
+  }
+  if (answer.degree === 3) {
+    return {
+      degreePath,
+      degreeLabel,
+      steps: answer.quality === 'major' ? ['whole', 'whole'] : ['whole', 'half'],
+      result,
+    }
+  }
+  if (answer.degree === 4 || answer.degree === 5) {
+    if (lower.accidental === 0 && upper.accidental === 0) {
+      const exception = answer.degree === 4 ? 'F–B' : 'B–F'
+      const tritone = answer.semitones === 6
+      const method = tritone
+        ? '三全音'
+        : `自然音${degreeLabel}（${exception} 除外）`
+      return { degreePath, degreeLabel, method, result, tritone }
+    }
+
+    const naturalLower = makeNote(lower.letter, 0, lower.octave)
+    const naturalUpper = makeNote(upper.letter, 0, upper.octave)
+    const natural = analyzeInterval(naturalLower, naturalUpper)
+    const shift = upper.accidental - lower.accidental
+    const amount = Math.abs(shift)
+    const stepText = (steps: number) => steps === 1 ? '半音' : steps === 2 ? '一个全音' : '一个全音＋一个半音'
+    const shiftText = shift === 0
+      ? `两个音都${lower.accidental > 0 ? '升' : '降'}${stepText(Math.abs(lower.accidental))}，音程不变`
+      : `音程${shift > 0 ? '扩大' : '缩小'}${stepText(amount)}`
+    return {
+      degreePath,
+      degreeLabel,
+      method: shiftText,
+      reference: [naturalLower, naturalUpper],
+      referenceLabel: natural.label,
+      result,
+      tritone: answer.semitones === 6,
+    }
+  }
+
+  const invertedDegree = (9 - answer.degree) as IntervalDegree
+  const invertedQuality = INVERTED_INTERVAL_QUALITY[answer.quality]
+  const invertedLabel = intervalLabel(invertedDegree, invertedQuality)
+  return {
+    degreePath,
+    degreeLabel,
+    result,
+    inversion: {
+      notes: [upper, lower],
+      label: invertedLabel,
+      formula: `${degreeText}＋${['一', '二', '三', '四', '五', '六', '七'][invertedDegree - 1]}＝九；`,
+      qualities: `${QUALITY_TEXT[invertedQuality]} ↔ ${QUALITY_TEXT[answer.quality]}`,
+    },
+  }
+}
+
 export function analyzeInterval(lower: NoteSpelling, upper: NoteSpelling): IntervalIdentity {
   const lowerLetter = LETTERS.indexOf(lower.letter)
   const upperLetter = LETTERS.indexOf(upper.letter)
@@ -321,8 +413,8 @@ export function triadMemberSequence(quality: TriadQuality, inversion: 0 | 1 | 2 
   const rootPosition: [string, string, string] = quality === 'major'
     ? ['R', 'M3', '5']
     : quality === 'minor'
-      ? ['R', 'm3', '5']
-      : ['R', 'm3', '♭5']
+      ? ['R', '♭3', '5']
+      : ['R', '♭3', '♭5']
   return rotateTriad(rootPosition, inversion).join('-')
 }
 

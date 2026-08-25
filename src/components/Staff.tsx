@@ -196,7 +196,12 @@ export function MusicScore({ score, label, onNoteClick }: MusicScoreProps) {
         key={`${area.label}-${area.x}-${area.y}-${index}`}
         aria-label={`播放 ${area.label}`}
         style={{ left: area.x, top: area.y, width: area.width, height: area.height }}
-        onClick={() => onNoteClick?.(area.note)}
+        onPointerDown={(event) => {
+          if (event.button === 0) onNoteClick?.(area.note)
+        }}
+        onClick={(event) => {
+          if (event.detail === 0) onNoteClick?.(area.note)
+        }}
       />)}
     </div>}
   </div>

@@ -135,6 +135,14 @@ export async function playNotes(notes: NoteSpelling[], mode: 'melodic' | 'harmon
   return source
 }
 
+export async function playImmediateNote(note: NoteSpelling, instrument: InstrumentId = 'piano'): Promise<AudioSource> {
+  const generation = beginPlayback()
+  const source = await initializeAudio(instrument)
+  if (!tone || generation !== playbackGeneration) return source
+  trigger(frequency(note), 0.8, tone.now(), instrument)
+  return source
+}
+
 export async function playChordThenTone(chord: NoteSpelling[], target: NoteSpelling, instrument: InstrumentId = 'piano'): Promise<AudioSource> {
   const generation = beginPlayback()
   const source = await initializeAudio(instrument)

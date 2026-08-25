@@ -1,6 +1,6 @@
 import { parsePitchName, pitchName } from '../domain/music'
-import { ACCIDENTAL_GLYPHS, CHORD_ACCIDENTAL_GLYPHS } from '../domain/smufl'
-import type { ChordMember, PitchSpelling } from '../domain/types'
+import { TEXT_ACCIDENTAL_GLYPHS } from '../domain/smufl'
+import type { ChordMember, NoteSpelling, PitchSpelling } from '../domain/types'
 
 type AccidentalContext = 'pitch' | 'chord' | 'member' | 'keyboard'
 
@@ -17,12 +17,12 @@ function splitAccidentalAndSuffix(value: string): [string, string] {
   return [accidental, value.slice(index)]
 }
 
-function accidentalGlyph(value: string, context: AccidentalContext): string {
-  return (context === 'chord' ? CHORD_ACCIDENTAL_GLYPHS : ACCIDENTAL_GLYPHS)[value] ?? value
+function accidentalGlyph(value: string): string {
+  return TEXT_ACCIDENTAL_GLYPHS[value] ?? value
 }
 
 export function MusicAccidental({ value, context = 'pitch' }: { value: string; context?: AccidentalContext }) {
-  return <span className={`music-accidental music-accidental-${context}`} aria-hidden="true">{accidentalGlyph(value, context)}</span>
+  return <span className={`music-accidental music-accidental-${context}`} aria-hidden="true">{accidentalGlyph(value)}</span>
 }
 
 export function PitchName({ value, className = '' }: { value: string | PitchSpelling; className?: string }) {
@@ -41,6 +41,26 @@ export function PitchName({ value, className = '' }: { value: string | PitchSpel
   </span>
 }
 
+export function PitchSequence({ values, separator = '-', spacious = true }: { values: readonly (string | PitchSpelling | NoteSpelling)[]; separator?: string; spacious?: boolean }) {
+  return <>{values.map((value, index) => <span key={`${typeof value === 'string' ? value : pitchName(value)}-${index}`}>
+    {index > 0 && <span className={`pitch-sequence-separator ${spacious ? 'spacious' : ''}`} aria-hidden="true">{separator}</span>}
+    <PitchName value={value} />
+  </span>)}</>
+}
+
+export function StepFormula({ steps }: { steps: readonly ('whole' | 'half')[] }) {
+  const label = steps.map((step) => step === 'whole' ? '全音' : '半音').join('加')
+  return <span className="step-formula" aria-label={label}>
+    {steps.map((step, index) => <span className="step-formula-part" key={`${step}-${index}`}>
+      {index > 0 && <span className="step-formula-plus" aria-hidden="true">＋</span>}
+      <span className={`step-unit step-unit-${step}`} aria-hidden="true">
+        <span className="step-unit-half-frame" />
+        <span>{step === 'whole' ? '全音' : '半音'}</span>
+      </span>
+    </span>)}
+  </span>
+}
+
 export function ChordMemberSymbol({ value }: { value: string | ChordMember }) {
   const flat = value.startsWith('♭')
   return <span className="chord-member-symbol" aria-label={value}>
@@ -52,7 +72,7 @@ export function ChordMemberSymbol({ value }: { value: string | ChordMember }) {
 export function ChordMemberSequence({ values }: { values: readonly string[] }) {
   return <span className="chord-member-sequence">
     {values.map((value, index) => <span className="chord-member-token" key={`${value}-${index}`}>
-      {index > 0 && <span className="chord-member-separator" aria-hidden="true">–</span>}
+      {index > 0 && <span className="chord-member-separator" aria-hidden="true">-</span>}
       <ChordMemberSymbol value={value} />
     </span>)}
   </span>
