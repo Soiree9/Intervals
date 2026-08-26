@@ -491,7 +491,26 @@ function App() {
           {filteredWrongItems.length ? <><div className="wrong-list">{filteredWrongItems.map((item) => <div className="wrong-row" key={item.key}><span className="wrong-kind">{KIND_NAMES[item.kind]}</span><strong><QuestionSummary question={item.question} notation={settings.chordNotation} /></strong><small>累计答错 {item.wrongCount} 次</small></div>)}</div><button type="button" className="primary-button" disabled={starting} onClick={() => void beginSession(filteredWrongItems[0].kind, filteredWrongItems.slice(0, 10).map((item) => item.question))}>{starting ? '正在准备音源…' : `复习这 ${Math.min(10, filteredWrongItems.length)} 道题`}</button></> : <div className="empty-state"><span>✓</span><h2>还没有错题</h2><p>答错的题会自动保存在这里。</p></div>}
         </section>}
       </main>
-      <footer><span>练习数据仅保存在当前设备</span><details className="audio-credits"><summary>音源与许可</summary><p><strong>钢琴：</strong>Salamander Grand Piano V3，CC BY 3.0；使用原始 48 kHz / 24-bit 第 10 力度层转换采样。</p><p><strong>古典吉他：</strong>Quartertone Yamaha Classical Guitar（Tone.js Instruments），CC BY 3.0；使用 G3–F5 范围的整理版采样。</p><p><a href="https://github.com/sfzinstruments/SalamanderGrandPiano" target="_blank" rel="noreferrer">钢琴官方来源</a> · <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noreferrer">吉他与整理版来源</a> · <a href={`${import.meta.env.BASE_URL}audio/ATTRIBUTION.md`} target="_blank" rel="noreferrer">完整文件清单</a></p></details></footer>
+      <footer>
+        <div className="footer-note">
+          <span className="footer-eyebrow">LOCAL DATA</span>
+          <p>练习数据仅保存在当前设备</p>
+        </div>
+        <details className="audio-credits">
+          <summary><span className="footer-eyebrow">AUDIO &amp; LICENSES</span><span className="audio-credits-name">音源与许可</span></summary>
+          <div className="audio-credits-list">
+            <section className="audio-credit">
+              <h3>钢琴<span>Piano</span></h3>
+              <p>Salamander Grand Piano V3，CC BY 3.0。使用原始 48 kHz / 24-bit 第 10 力度层转换采样。</p>
+            </section>
+            <section className="audio-credit">
+              <h3>古典吉他<span>Classical Guitar</span></h3>
+              <p>Quartertone Yamaha Classical Guitar（Tone.js Instruments），CC BY 3.0。使用 G3–F5 范围的整理版采样。</p>
+            </section>
+          </div>
+          <p className="audio-credits-links"><a href="https://github.com/sfzinstruments/SalamanderGrandPiano" target="_blank" rel="noreferrer">钢琴官方来源</a><a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noreferrer">吉他与整理版来源</a><a href={`${import.meta.env.BASE_URL}audio/ATTRIBUTION.md`} target="_blank" rel="noreferrer">完整文件清单</a></p>
+        </details>
+      </footer>
     </div>
   )
 }
@@ -539,7 +558,7 @@ function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: Lifeti
       <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><img className="mode-media" src="/Intervals/images/home-modules/interval-v1.webp" alt="" /><span className="mode-number">01 / INTERVALS</span><div className="mode-copy"><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p></div><span className="mode-link">开始设置 →</span></button>
       <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><img className="mode-media" src="/Intervals/images/home-modules/chord-v1.webp" alt="" /><span className="mode-number">02 / CHORDS</span><div className="mode-copy"><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p></div><span className="mode-link">选择练习 →</span></button>
       <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><img className="mode-media" src="/Intervals/images/home-modules/key-v1.webp" alt="" /><span className="mode-number">03 / KEYS</span><div className="mode-copy"><h2>调</h2><p>在一个大调内练习音名、音级与和弦进行。</p></div><span className="mode-link">选择练习 →</span></button>
-      <div className="install-card"><img className="mode-media" src="/Intervals/images/home-modules/offline-v1.webp" alt="" /><span className="mode-number">04 / OFFLINE</span><div className="install-copy"><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details><summary>查看安装方法</summary><p>Chrome / Edge：点击地址栏右侧的“安装”。Android：Chrome 菜单选择“安装应用”。iPhone / iPad：Safari 的分享菜单选择“添加到主屏幕”。</p></details>}</div></div>
+      <div className="install-card"><img className="mode-media" src="/Intervals/images/home-modules/offline-v1.webp" alt="" /><span className="mode-number">04 / OFFLINE</span><div className="install-copy"><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details className="install-help"><summary>查看安装方法</summary><ul className="install-help-list"><li><span>Chrome / Edge</span>点击地址栏右侧的“安装”。</li><li><span>Android</span>Chrome 菜单选择“安装应用”。</li><li><span>iPhone / iPad</span>Safari 的分享菜单选择“添加到主屏幕”。</li></ul></details>}</div></div>
     </div>
   </section>
 }

@@ -51,11 +51,28 @@
 .chord-notation-toggle .chord-symbol { margin-left: 3px; font-size: 15px; }
 
 main { flex: 1; width: 100%; }
-footer { padding: 30px 20px; border-top: 1px solid var(--line); text-align: center; font-size: 12px; color: var(--muted); }
-.audio-credits { width: min(680px, 100%); margin: 8px auto 0; }
-.audio-credits summary { color: var(--forest); cursor: pointer; font-weight: 750; }
-.audio-credits p { margin: 8px 0 0; line-height: 1.6; }
-.audio-credits a { color: var(--forest); }
+footer { padding: clamp(30px, 4.5vw, 56px) clamp(18px, 3vw, 48px); border-top: 1px solid rgba(20,24,23,.28); display: flex; align-items: flex-start; justify-content: space-between; gap: clamp(28px, 4vw, 64px); }
+.footer-eyebrow { display: block; font: 550 9px/1.3 var(--font-sans); letter-spacing: .22em; color: rgba(20,24,23,.52); }
+.footer-note { flex: 0 1 auto; }
+.footer-note p { margin: 12px 0 0; font-family: var(--font-editorial); font-size: clamp(19px, 1.7vw, 24px); font-weight: 400; line-height: 1.2; letter-spacing: -.02em; color: var(--ink); }
+.audio-credits { flex: 0 1 560px; margin: 0; }
+.audio-credits summary { display: flex; align-items: baseline; gap: 14px; cursor: pointer; list-style: none; }
+.audio-credits summary::-webkit-details-marker { display: none; }
+.audio-credits summary::after { content: "+"; margin-left: auto; font: 300 16px/1 var(--font-sans); color: rgba(20,24,23,.55); }
+.audio-credits[open] summary::after { content: "\2013"; }
+.audio-credits-name { font-family: var(--font-editorial); font-size: clamp(19px, 1.7vw, 24px); line-height: 1.2; letter-spacing: -.02em; color: var(--ink); }
+.audio-credits-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 32px; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(20,24,23,.16); }
+.audio-credit h3 { margin: 0 0 9px; display: flex; align-items: baseline; gap: 9px; font-family: var(--font-editorial); font-size: 17px; font-weight: 400; letter-spacing: -.015em; color: var(--ink); }
+.audio-credit h3 span { font-family: var(--font-sans); font-size: 8px; font-weight: 600; letter-spacing: .18em; color: rgba(20,24,23,.5); }
+.audio-credit p { margin: 0; font-size: 12px; line-height: 1.65; color: var(--muted); }
+.audio-credits-links { margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 7px 22px; }
+.audio-credits-links a { font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(20,24,23,.32); }
+.audio-credits-links a:hover { text-decoration-color: var(--ink); }
+@media (max-width: 720px) {
+  footer { flex-direction: column; }
+  .audio-credits { width: 100%; flex-basis: auto; }
+  .audio-credits-list { grid-template-columns: 1fr; }
+}
 
 .home-view, .quiz-view { width: min(1180px, calc(100% - 36px)); margin: 0 auto; }
 .home-view { padding: clamp(36px, 6vw, 72px) 0 48px; }
@@ -102,9 +119,14 @@ footer { padding: 30px 20px; border-top: 1px solid var(--line); text-align: cent
 .install-copy { width: min(50%, 290px); position: absolute; left: 34px; bottom: 29px; z-index: 1; }
 .install-card strong { display: block; margin-bottom: 11px; font-family: var(--font-editorial); font-size: clamp(36px, 3.4vw, 48px); font-weight: 400; line-height: 1.02; letter-spacing: -.04em; }
 .install-card p { margin: 0; color: var(--card-copy); font-family: var(--font-sans); font-size: clamp(13px, 1vw, 15px); line-height: 1.5; letter-spacing: -.015em; }
-.install-card details { width: min(440px, 100%); margin-top: 17px; color: var(--card-ink); font-size: 12px; }
-.install-card summary { cursor: pointer; font-weight: 600; letter-spacing: .02em; }
-.install-card details p { margin-top: 10px; }
+.install-help { width: min(440px, 100%); margin-top: 17px; color: var(--card-ink); font-size: 12px; }
+.install-help summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; font-weight: 500; letter-spacing: .02em; }
+.install-help summary::-webkit-details-marker { display: none; }
+.install-help summary::after { content: "+"; margin-left: auto; font: 300 14px/1 var(--font-sans); opacity: .55; }
+.install-help[open] summary::after { content: "\2013"; }
+.install-help-list { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.install-help-list li { display: flex; gap: 14px; line-height: 1.6; }
+.install-help-list span { flex: 0 0 88px; padding-top: .18em; font-size: 9px; font-weight: 600; letter-spacing: .14em; color: var(--card-copy); }
 .install-card .primary-button { margin-top: 18px; color: #fff; background: var(--ink); }
 .navigation-panel { width: min(760px, calc(100% - 36px)); }
 .submodule-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
