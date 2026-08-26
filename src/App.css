@@ -82,33 +82,28 @@ footer { padding: 30px 20px; border-top: 1px solid var(--line); text-align: cent
 .home-actions-heading { padding: clamp(44px, 7vw, 92px) 4px 22px; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; }
 .home-actions-heading span { font-size: 9px; font-weight: 550; letter-spacing: .22em; }
 .home-actions-heading p { max-width: 620px; margin: 0; color: rgba(20,24,23,.7); font-family: var(--font-editorial); font-size: clamp(18px, 1.65vw, 24px); font-weight: 400; line-height: 1.42; letter-spacing: -.025em; }
-.home-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; background: #fff; }
-.mode-card, .install-card { min-height: 350px; padding: 34px; position: relative; overflow: hidden; border: 0; }
-.mode-card { text-align: left; cursor: pointer; transition: filter .2s var(--ease-out-quart); }
-.mode-card:hover { filter: saturate(1.08) brightness(.98); }
-.mode-number { color: rgba(20,24,23,.72); font: 600 10px/1.2 var(--font-sans); letter-spacing: .16em; }
-.mode-icon { position: absolute; top: 28px; right: 32px; font: 66px/1 Georgia, serif; color: var(--ink); }
-.home-interval-icon { width: 84px; height: 70px; }
-.home-interval-icon i { position: absolute; font-style: normal; }
-.home-interval-icon i:first-child { left: 4px; bottom: 0; }
-.home-interval-icon i:last-child { right: 2px; top: 0; }
+.home-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 1.8vw, 24px); }
+.home-action-grid > :last-child:nth-child(odd) { height: clamp(175px, 15.5vw, 230px); grid-column: 1 / -1; }
+.mode-card, .install-card { --card-ink: #151b19; --card-copy: rgba(21,27,25,.76); height: clamp(350px, 31vw, 460px); min-height: 0; padding: 34px; position: relative; overflow: hidden; border: 0; color: var(--card-ink); }
+.mode-card { text-align: left; cursor: pointer; }
+.mode-media { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; pointer-events: none; transition: transform .45s var(--ease-out-quart); }
+.mode-card:hover .mode-media { transform: scale(1.006); }
+.mode-number { position: absolute; top: 34px; left: 34px; z-index: 2; color: var(--card-ink); font: 550 9px/1.2 var(--font-sans); letter-spacing: .2em; opacity: .76; }
 .chord-stack-icon { display: block; width: 68px; height: 68px; }
-.mode-card h2 { margin: 126px 0 13px; font-family: var(--font-editorial); font-size: clamp(40px, 5vw, 62px); line-height: 1; font-weight: 400; letter-spacing: -.04em; }
-.mode-card p { max-width: 440px; color: rgba(20,24,23,.76); line-height: 1.65; }
-.mode-link { position: absolute; left: 34px; bottom: 30px; color: var(--ink); font-weight: 780; }
-.interval-mode { background: #08a9e5; }
-.triad-mode { background: #e33e32; }
-.key-mode { background: #ddec35; }
-.install-card { color: var(--ink); background: #f2ede3; }
-.install-card .mode-number { color: rgba(20,24,23,.62); }
-.install-mark { position: absolute; right: 30px; top: 25px; display: grid; justify-items: end; }
-.install-mark span { font: 62px/.85 Georgia, serif; }
-.install-mark small { margin-top: 8px; font-size: 8px; font-weight: 800; letter-spacing: .16em; }
-.install-copy { position: absolute; left: 34px; right: 34px; bottom: 29px; }
-.install-card strong { display: block; margin-bottom: 8px; font-family: var(--font-editorial); font-size: 31px; font-weight: 400; }
-.install-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-.install-card details { width: min(440px, 100%); margin-top: 17px; color: var(--forest); font-size: 13px; }
-.install-card summary { cursor: pointer; font-weight: 750; }
+.mode-copy { width: min(64%, 430px); position: absolute; left: 34px; bottom: 72px; z-index: 2; }
+.mode-card h2 { margin: 0 0 11px; font-family: var(--font-editorial); font-size: clamp(46px, 4vw, 58px); line-height: .96; font-weight: 400; letter-spacing: -.045em; }
+.mode-card p { margin: 0; color: var(--card-copy); font-family: var(--font-sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.5; letter-spacing: -.015em; }
+.mode-link { position: absolute; left: 34px; bottom: 30px; z-index: 2; color: var(--card-ink); font: 600 12px/1.2 var(--font-sans); letter-spacing: .02em; }
+.interval-mode { --card-ink: #102a32; --card-copy: rgba(16,42,50,.76); background: #08a9e5; }
+.triad-mode { --card-ink: #f5efe5; --card-copy: rgba(245,239,229,.82); background: #c83b32; }
+.triad-mode .mode-media { filter: saturate(.72) brightness(.88); }
+.key-mode { --card-ink: #172219; --card-copy: rgba(23,34,25,.76); background: #ddec35; }
+.install-card { --card-ink: #222725; --card-copy: rgba(34,39,37,.68); background: #f2ede3; }
+.install-copy { width: min(50%, 290px); position: absolute; left: 34px; bottom: 29px; z-index: 1; }
+.install-card strong { display: block; margin-bottom: 11px; font-family: var(--font-editorial); font-size: clamp(36px, 3.4vw, 48px); font-weight: 400; line-height: 1.02; letter-spacing: -.04em; }
+.install-card p { margin: 0; color: var(--card-copy); font-family: var(--font-sans); font-size: clamp(13px, 1vw, 15px); line-height: 1.5; letter-spacing: -.015em; }
+.install-card details { width: min(440px, 100%); margin-top: 17px; color: var(--card-ink); font-size: 12px; }
+.install-card summary { cursor: pointer; font-weight: 600; letter-spacing: .02em; }
 .install-card details p { margin-top: 10px; }
 .install-card .primary-button { margin-top: 18px; color: #fff; background: var(--ink); }
 .navigation-panel { width: min(760px, calc(100% - 36px)); }
@@ -362,14 +357,18 @@ legend small { color: var(--muted); font-weight: 450; }
   .lifetime-stats { gap: 20px; justify-content: space-between; padding-top: 18px; border-top: 1px solid var(--line); }
   .lifetime-stats strong { font-size: 22px; }
   .home-actions-heading { padding: 48px 16px 18px; align-items: flex-start; flex-direction: column; gap: 10px; }
-  .home-action-grid { grid-template-columns: 1fr; gap: 2px; }
-  .mode-card, .install-card { min-height: 290px; padding: 26px; }
-  .mode-icon { top: 24px; right: 26px; font-size: 54px; }
-  .home-interval-icon { width: 72px; height: 58px; }
+  .home-action-grid { grid-template-columns: 1fr; gap: 14px; }
+  .home-action-grid > :last-child:nth-child(odd) { height: auto; grid-column: auto; aspect-ratio: 3 / 2; }
+  .mode-card, .install-card { height: auto; min-height: 0; aspect-ratio: 3 / 2; padding: 26px; }
+  .mode-number { top: 24px; left: 26px; font-size: 8px; }
   .chord-stack-icon { width: 58px; height: 58px; }
-  .mode-card h2 { margin-top: 98px; }
-  .mode-link { left: 26px; }
-  .install-copy { left: 26px; right: 26px; bottom: 26px; }
+  .mode-copy { width: 62%; left: 26px; bottom: 49px; }
+  .mode-card h2 { margin-bottom: 8px; font-size: 40px; }
+  .mode-card p { font-size: 12px; line-height: 1.45; }
+  .mode-link { left: 26px; bottom: 17px; font-size: 11px; }
+  .install-copy { width: 50%; left: 26px; bottom: 22px; }
+  .install-card strong { font-size: 38px; }
+  .install-card p { font-size: 12px; line-height: 1.45; }
   .panel { width: calc(100% - 24px); margin: 20px auto; padding: 25px 20px; }
   .choice-grid.two { grid-template-columns: 1fr; }
   .submodule-grid { grid-template-columns: 1fr; }
