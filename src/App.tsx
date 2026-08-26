@@ -491,13 +491,13 @@ function App() {
           {filteredWrongItems.length ? <><div className="wrong-list">{filteredWrongItems.map((item) => <div className="wrong-row" key={item.key}><span className="wrong-kind">{KIND_NAMES[item.kind]}</span><strong><QuestionSummary question={item.question} notation={settings.chordNotation} /></strong><small>累计答错 {item.wrongCount} 次</small></div>)}</div><button type="button" className="primary-button" disabled={starting} onClick={() => void beginSession(filteredWrongItems[0].kind, filteredWrongItems.slice(0, 10).map((item) => item.question))}>{starting ? '正在准备音源…' : `复习这 ${Math.min(10, filteredWrongItems.length)} 道题`}</button></> : <div className="empty-state"><span>✓</span><h2>还没有错题</h2><p>答错的题会自动保存在这里。</p></div>}
         </section>}
       </main>
-      <footer>
+      <footer key={view}>
         <div className="footer-note">
           <span className="footer-eyebrow">LOCAL DATA</span>
           <p>练习数据仅保存在当前设备</p>
         </div>
         <details className="audio-credits">
-          <summary><span className="footer-eyebrow">AUDIO &amp; LICENSES</span><span className="audio-credits-name">音源与许可</span></summary>
+          <summary>音源与许可</summary>
           <div className="audio-credits-list">
             <section className="audio-credit">
               <h3>钢琴<span>Piano</span></h3>
@@ -517,6 +517,7 @@ function App() {
 
 function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
   const [mastheadOpen, setMastheadOpen] = useState(true)
+  const [installHelpOpen, setInstallHelpOpen] = useState(false)
   const mastheadManuallyClosed = useRef(false)
   const sessions = useCountUp(stats.sessions)
   const attempts = useCountUp(stats.attempts)
@@ -558,7 +559,7 @@ function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: Lifeti
       <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><img className="mode-media" src="/Intervals/images/home-modules/interval-v1.webp" alt="" /><span className="mode-number">01 / INTERVALS</span><div className="mode-copy"><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p></div><span className="mode-link">开始设置 →</span></button>
       <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><img className="mode-media" src="/Intervals/images/home-modules/chord-v1.webp" alt="" /><span className="mode-number">02 / CHORDS</span><div className="mode-copy"><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p></div><span className="mode-link">选择练习 →</span></button>
       <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><img className="mode-media" src="/Intervals/images/home-modules/key-v1.webp" alt="" /><span className="mode-number">03 / KEYS</span><div className="mode-copy"><h2>调</h2><p>在一个大调内练习音名、音级与和弦进行。</p></div><span className="mode-link">选择练习 →</span></button>
-      <div className="install-card"><img className="mode-media" src="/Intervals/images/home-modules/offline-v1.webp" alt="" /><span className="mode-number">04 / OFFLINE</span><div className="install-copy"><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details className="install-help"><summary>查看安装方法</summary><ul className="install-help-list"><li><span>Chrome / Edge</span>点击地址栏右侧的“安装”。</li><li><span>Android</span>Chrome 菜单选择“安装应用”。</li><li><span>iPhone / iPad</span>Safari 的分享菜单选择“添加到主屏幕”。</li></ul></details>}</div></div>
+      <div className="install-card"><img className="mode-media" src="/Intervals/images/home-modules/offline-v1.webp" alt="" /><span className="mode-number">04 / OFFLINE</span><div className="install-copy"><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <button type="button" className="install-help-toggle" aria-expanded={installHelpOpen} onClick={() => setInstallHelpOpen(true)}>查看安装方法</button>}</div>{!installPrompt && <div className={`install-help-panel${installHelpOpen ? ' open' : ''}`}><div className="install-help-head"><span>安装方法</span><button type="button" className="install-help-close" aria-label="收起安装方法" onClick={() => setInstallHelpOpen(false)}>–</button></div><ul className="install-help-list"><li><span>Chrome / Edge</span>点击地址栏右侧的“安装”。</li><li><span>Android</span>Chrome 菜单选择“安装应用”。</li><li><span>iPhone / iPad</span>Safari 的分享菜单选择“添加到主屏幕”。</li></ul></div>}</div>
     </div>
   </section>
 }
