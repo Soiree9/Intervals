@@ -8,8 +8,9 @@ Last inspected: 2026-08-26
 
 - `package.json` 当前版本：`0.9.0`。
 - `CHANGELOG.md` 最新条目：`V0.9.0`，首页编辑式视觉与全站细节排版。
-- 正式标签 `v0.9.0` 与 GitHub Release 随本次发布创建；发布提交哈希、Release 链接与 Pages workflow 验证在发布完成后补记于此。
-- 稳定网址 [`https://soiree9.github.io/Intervals/`](https://soiree9.github.io/Intervals/)。
+- V0.9.0 代码与标签提交：`9d96cf8c0d93dd5720ced9e8193bb053beabbbc1`。
+- 正式标签：`v0.9.0`；GitHub Release：[`V0.9.0：首页编辑式视觉与全站细节排版`](https://github.com/Soiree9/Intervals/releases/tag/v0.9.0)，已标记为 Latest。
+- GitHub Pages workflow [`32932686854`](https://github.com/Soiree9/Intervals/actions/runs/32932686854) 已成功；稳定网址 [`https://soiree9.github.io/Intervals/`](https://soiree9.github.io/Intervals/) 已实际核对部署结果。
 
 对外功能清单见 [`../README.md`](../README.md)。
 
@@ -37,7 +38,8 @@ Last inspected: 2026-08-26
 
 ## 验证状态
 
-- 2026-08-26，页脚与安装说明编辑式排版、细线 `+ / –` 展开指示调整后通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。真实页面视觉效果尚未复核。
+- 2026-08-26，V0.9.0 发布后核对远端：release commit `9d96cf8` 的 Pages workflow `32932686854` 成功；稳定网址返回 200 且加载新构建 `index-D4KdwK5S.js` 与 `index-xMU9fiCx.css`，manifest、`sw.js`、favicon、PWA 图标与首页模块图片均返回 200；线上 `sw.js` 预缓存含新构建哈希且无旧哈希残留。线上首页、页脚与安装说明的真实视觉效果尚未在浏览器复核。
+- 2026-08-26，V0.9.0 在发布前通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。
 - 2026-08-26，本评审分支在模块字体、排版、和弦红色与浏览器/PWA 图标调整后通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。真实本地页面在 1440 × 1000 下保持双列，在 390 × 844 下保持约 `3 : 2` 的单列卡片与 14px 间距，无横向溢出，错误级控制台输出为 0；`favicon.svg` 与 `pwa-192x192.png` 的本地 Pages 路径均返回 HTTP 200，生产 `dist/index.html` 也只包含一层 `/Intervals/` 基础路径。
 - 2026-08-25，V0.8.1 在 Node `v24.15.0`、npm `11.12.1` 下通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。
 - 2026-08-26，D 结构、B 字标、“纯净清晰”主图、共享顶部导航、选定细线图标与宽屏比例定稿后通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。真实本地页面已在 1920 × 1080 和 390 × 844 视口复核：宽屏字标缩小且主图文案、统计放大，中窄屏比例未改变；古典吉他琴头保持正向竖直，并与钢琴图标视觉面积接近；错误级控制台输出为 0。
