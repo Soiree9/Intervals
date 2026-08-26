@@ -431,11 +431,11 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button type="button" className="brand" onClick={goHome} aria-label="返回首页"><span className="brand-mark">♫</span><span>音程、和弦与调训练</span></button>
+        <button type="button" className="brand" onClick={goHome} aria-label="返回首页"><span className="brand-mark"><img src="/Intervals/images/ui-icons/interval.png" alt="" /></span><span className="brand-copy"><strong>INTERVALS</strong><small>EAR TRAINING</small></span></button>
         <div className="topbar-meta">
           <GlobalInstrumentSwitch instrument={settings.instrument} source={audioSource} onChange={changeInstrument} />
-          <button type="button" className="text-button notation-toggle chord-notation-toggle" aria-label={`和弦记法：${settings.chordNotation === 'symbol' ? '符号 C△' : '文字 Cmaj7'}`} title="切换和弦记法" aria-pressed={settings.chordNotation === 'symbol'} onClick={() => setSettings((current) => ({ ...current, chordNotation: current.chordNotation === 'symbol' ? 'text' : 'symbol' }))}>记法 <ChordSymbol chord={{ root: parsePitchName('C'), quality: 'major7' }} notation={settings.chordNotation} /></button>
-          <button type="button" className="text-button" onClick={() => setView('wrongs')}>错题 {wrongItems.length}</button>
+          <button type="button" className="topbar-action notation-toggle chord-notation-toggle" aria-label={`和弦记法：${settings.chordNotation === 'symbol' ? '符号 C△' : '文字 Cmaj7'}`} title="切换和弦记法" aria-pressed={settings.chordNotation === 'symbol'} onClick={() => setSettings((current) => ({ ...current, chordNotation: current.chordNotation === 'symbol' ? 'text' : 'symbol' }))}><img className="topbar-generated-icon" src="/Intervals/images/ui-icons/notation-b.png" alt="" /><span className="topbar-control-copy"><small>NOTATION</small><span><ChordSymbol chord={{ root: parsePitchName('C'), quality: 'major7' }} notation={settings.chordNotation} /></span></span></button>
+          <button type="button" className="topbar-action review-toggle" aria-label={`错题 ${wrongItems.length}，进入错题复习`} onClick={() => setView('wrongs')}><img className="topbar-generated-icon" src="/Intervals/images/ui-icons/review-a.png" alt="" /><span className="topbar-control-copy"><small>REVIEW</small><span className="review-count">{wrongItems.length}</span></span></button>
         </div>
       </header>
 
@@ -498,17 +498,50 @@ function App() {
 }
 
 function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
+  const [mastheadOpen, setMastheadOpen] = useState(true)
+  const mastheadManuallyClosed = useRef(false)
   const sessions = useCountUp(stats.sessions)
   const attempts = useCountUp(stats.attempts)
   const accuracy = useCountUp(stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0)
-  return <section className="home-view">
-    <div className="hero-card"><div className="eyebrow">READ · HEAR · NAME</div><h1>看见音符，听见关系，<br />说出它的名字。</h1><p>每轮 10 题，结合五线谱、音名和听觉练习。支持手机、电脑和离线使用。</p><div className="lifetime-stats"><div><strong>{sessions}</strong><span>完成轮次</span></div><div><strong>{attempts}</strong><span>累计答题</span></div><div><strong>{accuracy}%</strong><span>累计正确率</span></div></div></div>
-    <div className="mode-grid three">
-      <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><span className="mode-number">01</span><span className="mode-icon">♬</span><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p><span className="mode-link">开始设置 →</span></button>
-      <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><span className="mode-number">02</span><span className="mode-icon"><TriadStackIcon /></span><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p><span className="mode-link">选择练习 →</span></button>
-      <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><span className="mode-number">03</span><span className="mode-icon">♮</span><h2>调</h2><p>在一个大调内练习音名、音级和和弦进行。</p><span className="mode-link">选择练习 →</span></button>
+
+  useEffect(() => {
+    const updateMasthead = () => {
+      const nearTop = window.scrollY < Math.min(96, Math.max(52, window.innerHeight * .08))
+      setMastheadOpen(nearTop && !mastheadManuallyClosed.current)
+    }
+    window.addEventListener('scroll', updateMasthead, { passive: true })
+    return () => window.removeEventListener('scroll', updateMasthead)
+  }, [])
+
+  const toggleMasthead = () => {
+    setMastheadOpen((open) => {
+      mastheadManuallyClosed.current = open
+      return !open
+    })
+  }
+
+  return <section className="home-view editorial-home">
+    <div className={mastheadOpen ? 'home-masthead open' : 'home-masthead'}>
+      <button type="button" className="home-masthead-toggle" aria-label={mastheadOpen ? '收起首页字标' : '展开首页字标'} aria-expanded={mastheadOpen} onClick={toggleMasthead}><img src={mastheadOpen ? '/Intervals/images/ui-icons/chevron-up.png' : '/Intervals/images/ui-icons/chevron-down.png'} alt="" /></button>
+      <div className="home-masthead-panel" aria-hidden={!mastheadOpen}><span>INTERVALS</span></div>
     </div>
-    <div className="install-card"><div><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p></div>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details><summary>查看安装方法</summary><p>Chrome / Edge：点击地址栏右侧的“安装”。Android：Chrome 菜单选择“安装应用”。iPhone / iPad：Safari 的分享菜单选择“添加到主屏幕”。</p></details>}</div>
+    <figure className="home-feature">
+      <picture>
+        <source srcSet="/Intervals/images/home-editorial-hero-detail-v2-4k.webp" type="image/webp" />
+        <img src="/Intervals/images/home-editorial-hero-detail-v2.png" alt="红色节拍器、透明音叉和荧光黄耳形雕塑置于亮蓝背景上" fetchPriority="high" />
+      </picture>
+      <figcaption>
+        <div className="home-feature-copy"><span className="eyebrow">LISTEN · READ · NAME / SESSION 01</span><h1>听见关系</h1><p>用五线谱、音名和声音，把音程、和弦与调重新连在一起。</p></div>
+        <div className="lifetime-stats"><div><strong>{sessions}</strong><span>完成轮次</span></div><div><strong>{attempts}</strong><span>累计答题</span></div><div><strong>{accuracy}%</strong><span>累计正确率</span></div></div>
+      </figcaption>
+    </figure>
+    <div className="home-actions-heading"><span>CHOOSE A LISTENING PATH</span><p>每轮 10 题。选择一种关系，开始听、读和命名。</p></div>
+    <div className="home-action-grid">
+      <button type="button" className="mode-card interval-mode" onClick={() => onChoose('interval')}><span className="mode-number">01 / INTERVALS</span><span className="mode-icon home-interval-icon" aria-hidden="true"><i>♪</i><i>♪</i></span><h2>音程</h2><p>看音名和五线谱，判断完整音程；可试听旋律或和声。</p><span className="mode-link">开始设置 →</span></button>
+      <button type="button" className="mode-card triad-mode" onClick={() => onChoose('chord')}><span className="mode-number">02 / CHORDS</span><span className="mode-icon" aria-hidden="true"><TriadStackIcon /></span><h2>和弦</h2><p>练习三和弦与七和弦的音名、排列和听辨。</p><span className="mode-link">选择练习 →</span></button>
+      <button type="button" className="mode-card key-mode" onClick={() => onChoose('key')}><span className="mode-number">03 / KEYS</span><span className="mode-icon" aria-hidden="true">♮</span><h2>调</h2><p>在一个大调内练习音名、音级和和弦进行。</p><span className="mode-link">选择练习 →</span></button>
+      <div className="install-card"><span className="mode-number">04 / OFFLINE</span><div className="install-mark" aria-hidden="true"><span>10</span><small>QUESTIONS</small></div><div className="install-copy"><strong>安装到设备</strong><p>安装后可从桌面打开，也可离线练习。</p>{installPrompt ? <button type="button" className="primary-button" onClick={onInstall}>安装应用</button> : <details><summary>查看安装方法</summary><p>Chrome / Edge：点击地址栏右侧的“安装”。Android：Chrome 菜单选择“安装应用”。iPhone / iPad：Safari 的分享菜单选择“添加到主屏幕”。</p></details>}</div></div>
+    </div>
   </section>
 }
 

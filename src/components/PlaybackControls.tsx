@@ -18,8 +18,8 @@ export function GlobalInstrumentSwitch({ instrument, source, onChange }: { instr
     title={`点击切换为${nextName}`}
     onClick={() => onChange(next)}
   >
-    <span aria-hidden="true">{instrument === 'piano' ? '♬' : '♩'}</span>
-    <strong>{currentName}</strong>
+    <img className="instrument-glyph" src={instrument === 'piano' ? '/Intervals/images/ui-icons/piano.png' : '/Intervals/images/ui-icons/guitar.png'} alt="" />
+    <span className="instrument-copy"><small>INSTRUMENT</small><strong>{currentName}</strong></span>
     {fallback && <small>备用</small>}
   </button>
 }
