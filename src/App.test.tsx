@@ -39,14 +39,116 @@ async function startClosedTriad() {
 
 describe('App quiz navigation and triad playback', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     localStorage.clear()
     vi.clearAllMocks()
+    window.history.replaceState(null, '', '/')
+    vi.spyOn(window.history, 'go').mockImplementation(() => {})
+    vi.spyOn(window.history, 'forward').mockImplementation(() => {})
     window.scrollTo = vi.fn()
     vi.stubGlobal('ResizeObserver', class {
       observe() {}
       unobserve() {}
       disconnect() {}
     })
+  })
+
+  it('keeps the selected left masthead and exposes the brand wordmark on nested views', async () => {
+    localStorage.setItem('intervals.mobileMastheadWidthPreview', 'full')
+    render(<App />)
+    const masthead = document.querySelector('.home-masthead-panel')
+    expect(masthead).toHaveAttribute('aria-hidden', 'false')
+    expect(masthead?.querySelector('.home-masthead-wordmark:not(.home-masthead-wordmark-white)')).toHaveTextContent('INTERVALS')
+    expect(masthead?.querySelector('.home-masthead-wordmark-white')).toHaveTextContent('INTERVALS')
+    expect(screen.getByRole('button', { name: '收起首页字标' })).toBeInTheDocument()
+    expect(document.querySelector('.masthead-width-picker')).not.toBeInTheDocument()
+    expect(document.querySelector('.topbar')).toHaveClass('topbar-home')
+    expect(document.querySelector('.brand-copy strong')).toHaveTextContent('INTERVALS')
+    await waitFor(() => expect(localStorage.getItem('intervals.mobileMastheadWidthPreview')).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: /^01.*音程.*开始设置/ }))
+    expect(document.querySelector('.topbar')).toHaveClass('topbar-inner')
+    expect(document.querySelector('.brand-copy strong')).toHaveTextContent('INTERVALS')
+    expect(document.querySelector('.brand-copy small')).toHaveTextContent('EAR TRAINING')
+  })
+
+  it('keeps the original immediate mobile masthead response', () => {
+    const stubMatchMedia = (matches: boolean) => {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        value: (query: string) => ({
+          matches: query === '(max-width: 700px)' ? matches : false,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          onchange: null,
+          dispatchEvent: () => true,
+        }),
+      })
+    }
+    const setScrollY = (y: number) => Object.defineProperty(window, 'scrollY', { value: y, configurable: true })
+    const panel = () => document.querySelector('.home-masthead-panel')
+
+    const cleanupWindow = () => {
+      delete (window as Partial<Window & { matchMedia?: Window['matchMedia'] }>).matchMedia
+      delete (window as { scrollY?: number }).scrollY
+    }
+    stubMatchMedia(true)
+    render(<App />)
+    // jsdom 几何为 0，初次判定直接收起
+    expect(panel()).toHaveClass('collapsed')
+
+    // 保留原始手感：进入顶部阈值的同一个滚动事件立即展开
+    setScrollY(30)
+    window.dispatchEvent(new Event('scroll'))
+    expect(panel()).not.toHaveClass('collapsed')
+
+    // 离开顶部阈值后也立即收起
+    setScrollY(600)
+    window.dispatchEvent(new Event('scroll'))
+    expect(panel()).toHaveClass('collapsed')
+
+    // 快速上滑再回滑时，状态始终跟随最后一个滚动位置
+    setScrollY(30)
+    window.dispatchEvent(new Event('scroll'))
+    expect(panel()).not.toHaveClass('collapsed')
+    setScrollY(600)
+    window.dispatchEvent(new Event('scroll'))
+    expect(panel()).toHaveClass('collapsed')
+
+    cleanupWindow()
+  })
+
+  it('uses mobile browser history to return through navigation screens', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /^02.*和弦.*选择练习/ }))
+    const chordFamilyState = window.history.state
+    fireEvent.click(screen.getByRole('button', { name: /三和弦/ }))
+    expect(screen.getByRole('heading', { name: '选择三和弦练习' })).toBeInTheDocument()
+
+    fireEvent.popState(window, { state: chordFamilyState })
+
+    expect(screen.getByRole('heading', { name: '选择和弦练习' })).toBeInTheDocument()
+  })
+
+  it('blocks the mobile browser back action during a quiz but keeps the manual exit available', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /开始设置/ }))
+    const setupState = window.history.state
+    fireEvent.click(screen.getByRole('button', { name: /开始 10 题练习/ }))
+    await screen.findByRole('button', { name: '× 结束' })
+    const quizState = window.history.state
+
+    fireEvent.popState(window, { state: setupState })
+
+    expect(window.history.forward).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: '× 结束' })).toBeInTheDocument()
+    fireEvent.popState(window, { state: quizState })
+    fireEvent.click(screen.getByRole('button', { name: '× 结束' }))
+    expect(screen.getByRole('heading', { name: '听见关系' })).toBeInTheDocument()
   })
 
   it('returns a triad quiz to triad choices and immediately replays an actual mode change', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { ChordFamilyView, ChordSetup, SeventhPracticeView, TriadPracticeView } from './components/ChordNavigation'
 import { ChordSymbol } from './components/ChordSymbol'
@@ -63,6 +63,15 @@ import {
 
 type View = 'home' | 'chord-family' | 'triad-practice' | 'seventh-practice' | 'key' | 'setup-interval' | 'setup-chord' | 'setup-key' | 'quiz' | 'summary' | 'wrongs'
 
+const VIEWS = new Set<View>(['home', 'chord-family', 'triad-practice', 'seventh-practice', 'key', 'setup-interval', 'setup-chord', 'setup-key', 'quiz', 'summary', 'wrongs'])
+
+function appHistoryState(value: unknown): { intervalsView: View; intervalsIndex: number } | null {
+  if (!value || typeof value !== 'object') return null
+  const state = value as { intervalsView?: unknown; intervalsIndex?: unknown }
+  if (typeof state.intervalsView !== 'string' || !VIEWS.has(state.intervalsView as View) || typeof state.intervalsIndex !== 'number') return null
+  return { intervalsView: state.intervalsView as View, intervalsIndex: state.intervalsIndex }
+}
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
@@ -97,6 +106,7 @@ function practicePlaybackSettings(settings: AppSettings): PracticePlaybackSettin
 
 function App() {
   const [view, setView] = useState<View>('home')
+  const [homeMastheadDocked, setHomeMastheadDocked] = useState(false)
   const [kind, setKind] = useState<PracticeKind>('interval')
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings())
   const [wrongItems, setWrongItems] = useState<WrongItem[]>(() => loadWrongItems())
@@ -124,6 +134,11 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const lastAutoplayId = useRef('')
   const activeSequenceKey = useRef('')
+  const viewRef = useRef<View>('home')
+  const historyIndexRef = useRef(0)
+  const historyViewsRef = useRef(new Map<number, View>([[0, 'home']]))
+  const restoringQuizHistoryRef = useRef(false)
+  const mobileHistoryEnabledRef = useRef(typeof window.matchMedia !== 'function' || window.matchMedia('(max-width: 700px)').matches)
 
   const question = questions[questionIndex]
   const correctCount = results.filter(Boolean).length
@@ -133,6 +148,73 @@ function App() {
     () => wrongItems.filter((item) => wrongFilter === 'all' || item.kind === wrongFilter),
     [wrongFilter, wrongItems],
   )
+
+  const navigateTo = (nextView: View) => {
+    if (mobileHistoryEnabledRef.current) {
+      const nextIndex = historyIndexRef.current + 1
+      for (const index of historyViewsRef.current.keys()) {
+        if (index > historyIndexRef.current) historyViewsRef.current.delete(index)
+      }
+      historyIndexRef.current = nextIndex
+      historyViewsRef.current.set(nextIndex, nextView)
+      const currentState = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+      window.history.pushState({ ...currentState, intervalsView: nextView, intervalsIndex: nextIndex }, '')
+    }
+    viewRef.current = nextView
+    setView(nextView)
+  }
+
+  const navigateBackTo = (nextView: View) => {
+    if (mobileHistoryEnabledRef.current) {
+      let targetIndex = -1
+      for (let index = historyIndexRef.current - 1; index >= 0; index -= 1) {
+        if (historyViewsRef.current.get(index) === nextView) {
+          targetIndex = index
+          break
+        }
+      }
+      if (targetIndex >= 0) {
+        const delta = targetIndex - historyIndexRef.current
+        viewRef.current = nextView
+        setView(nextView)
+        window.history.go(delta)
+        return
+      }
+      historyViewsRef.current.set(historyIndexRef.current, nextView)
+      const currentState = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+      window.history.replaceState({ ...currentState, intervalsView: nextView, intervalsIndex: historyIndexRef.current }, '')
+    }
+    viewRef.current = nextView
+    setView(nextView)
+  }
+
+  useEffect(() => {
+    if (!mobileHistoryEnabledRef.current) return
+    const currentState = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+    window.history.replaceState({ ...currentState, intervalsView: 'home', intervalsIndex: 0 }, '')
+
+    const handlePopState = (event: PopStateEvent) => {
+      const nextState = appHistoryState(event.state)
+      if (restoringQuizHistoryRef.current) {
+        restoringQuizHistoryRef.current = false
+        if (nextState) historyIndexRef.current = nextState.intervalsIndex
+        return
+      }
+      if (viewRef.current === 'quiz') {
+        restoringQuizHistoryRef.current = true
+        window.history.forward()
+        return
+      }
+      if (!nextState) return
+      historyIndexRef.current = nextState.intervalsIndex
+      historyViewsRef.current.set(nextState.intervalsIndex, nextState.intervalsView)
+      viewRef.current = nextState.intervalsView
+      setView(nextState.intervalsView)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   useEffect(() => saveSettings(settings), [settings])
 
@@ -278,7 +360,7 @@ function App() {
       setElapsedSeconds(0)
       setIsReview(Boolean(suppliedQuestions))
       lastAutoplayId.current = ''
-      setView('quiz')
+      navigateTo('quiz')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '练习启动失败，请重试。')
     } finally {
@@ -375,7 +457,7 @@ function App() {
     const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000))
     setElapsedSeconds(seconds)
     setStats((current) => recordSession(current, results.length, correctCount))
-    setView('summary')
+    navigateTo('summary')
   }
 
   const clearSession = () => {
@@ -402,14 +484,14 @@ function App() {
   const goHome = () => {
     clearSession()
     setIsReview(false)
-    setView('home')
+    navigateBackTo('home')
   }
 
   const endQuiz = () => {
     const destination = quizExitView(kind, isReview)
     clearSession()
     setIsReview(false)
-    setView(destination)
+    navigateBackTo(destination)
   }
 
   const triggerInstall = async () => {
@@ -427,40 +509,44 @@ function App() {
   })
   usePreserveAnswerFocus(view === 'quiz')
 
+  useEffect(() => {
+    if (view !== 'home') setHomeMastheadDocked(false)
+  }, [view])
+
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className={view === 'home' ? `topbar topbar-home${homeMastheadDocked ? ' topbar-home-docked' : ''}` : 'topbar topbar-inner'}>
         <button type="button" className="brand" onClick={goHome} aria-label="返回首页"><span className="brand-mark"><img src="/Intervals/images/ui-icons/interval.png" alt="" /></span><span className="brand-copy"><strong>INTERVALS</strong><small>EAR TRAINING</small></span></button>
         <div className="topbar-meta">
           <GlobalInstrumentSwitch instrument={settings.instrument} source={audioSource} onChange={changeInstrument} />
           <button type="button" className="topbar-action notation-toggle chord-notation-toggle" aria-label={`和弦记法：${settings.chordNotation === 'symbol' ? '符号 C△' : '文字 Cmaj7'}`} title="切换和弦记法" aria-pressed={settings.chordNotation === 'symbol'} onClick={() => setSettings((current) => ({ ...current, chordNotation: current.chordNotation === 'symbol' ? 'text' : 'symbol' }))}><img className="topbar-generated-icon" src="/Intervals/images/ui-icons/notation-b.png" alt="" /><span className="topbar-control-copy"><small>NOTATION</small><span><ChordSymbol chord={{ root: parsePitchName('C'), quality: 'major7' }} notation={settings.chordNotation} /></span></span></button>
-          <button type="button" className="topbar-action review-toggle" aria-label={`错题 ${wrongItems.length}，进入错题复习`} onClick={() => setView('wrongs')}><img className="topbar-generated-icon" src="/Intervals/images/ui-icons/review-a.png" alt="" /><span className="topbar-control-copy"><small>REVIEW</small><span className="review-count">{wrongItems.length}</span></span></button>
+          <button type="button" className="topbar-action review-toggle" aria-label={`错题 ${wrongItems.length}，进入错题复习`} onClick={() => navigateTo('wrongs')}><img className="topbar-generated-icon" src="/Intervals/images/ui-icons/review-a.png" alt="" /><span className="topbar-control-copy"><small>REVIEW</small><span className="review-count">{wrongItems.length}</span></span></button>
         </div>
       </header>
 
       <main>
-        {view === 'home' && <HomeView stats={stats} installPrompt={installPrompt} onInstall={() => void triggerInstall()} onChoose={(next) => {
-          if (next === 'interval') { setKind('interval'); setView('setup-interval') }
-          else if (next === 'chord') setView('chord-family')
-          else setView('key')
+        {view === 'home' && <HomeView stats={stats} installPrompt={installPrompt} onInstall={() => void triggerInstall()} onDockChange={setHomeMastheadDocked} onChoose={(next) => {
+          if (next === 'interval') { setKind('interval'); navigateTo('setup-interval') }
+          else if (next === 'chord') navigateTo('chord-family')
+          else navigateTo('key')
         }} />}
 
-        {view === 'chord-family' && <ChordFamilyView onBack={() => setView('home')} onChoose={(family) => setView(family === 'triad' ? 'triad-practice' : 'seventh-practice')} />}
-        {view === 'triad-practice' && <TriadPracticeView onBack={() => setView('chord-family')} onChoose={(nextKind) => { setKind(nextKind); setView('setup-chord') }} />}
-        {view === 'seventh-practice' && <SeventhPracticeView onBack={() => setView('chord-family')} onChoose={(nextKind) => { setKind(nextKind); setView('setup-chord') }} />}
+        {view === 'chord-family' && <ChordFamilyView onBack={() => navigateBackTo('home')} onChoose={(family) => navigateTo(family === 'triad' ? 'triad-practice' : 'seventh-practice')} />}
+        {view === 'triad-practice' && <TriadPracticeView onBack={() => navigateBackTo('chord-family')} onChoose={(nextKind) => { setKind(nextKind); navigateTo('setup-chord') }} />}
+        {view === 'seventh-practice' && <SeventhPracticeView onBack={() => navigateBackTo('chord-family')} onChoose={(nextKind) => { setKind(nextKind); navigateTo('setup-chord') }} />}
 
         {view === 'key' && <section className="panel navigation-panel">
-          <button type="button" className="back-button" onClick={() => setView('home')}>← 返回首页</button>
+          <button type="button" className="back-button" onClick={() => navigateBackTo('home')}>← 返回首页</button>
           <div className="eyebrow">KEYS</div><h1>调内练习</h1><p className="setup-copy">选择一个大调，在调内练习音名、音级和和弦进行。</p>
           <div className="choice-grid two">
-            <button type="button" className="choice" onClick={() => { setKind('scale-degree'); setView('setup-key') }}><strong>音名与音级</strong><span>在音名和音级之间转换。</span></button>
-            <button type="button" className="choice" onClick={() => { setKind('progression'); setView('setup-key') }}><strong>和弦进行与级数</strong><span>在和弦进行和调内级数之间转换。</span></button>
+            <button type="button" className="choice" onClick={() => { setKind('scale-degree'); navigateTo('setup-key') }}><strong>音名与音级</strong><span>在音名和音级之间转换。</span></button>
+            <button type="button" className="choice" onClick={() => { setKind('progression'); navigateTo('setup-key') }}><strong>和弦进行与级数</strong><span>在和弦进行和调内级数之间转换。</span></button>
           </div>
         </section>}
 
-        {view === 'setup-interval' && <IntervalSetup settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => setView('home')} onStart={() => void beginSession('interval')} />}
-        {view === 'setup-chord' && <ChordSetup kind={kind as Extract<PracticeKind, 'triad-fill' | 'spread-triad-fill' | 'chord-tone' | 'drop2-voicing' | 'shell-voicing'>} settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => setView(kind === 'drop2-voicing' || kind === 'shell-voicing' ? 'seventh-practice' : 'triad-practice')} onStart={() => void beginSession(kind)} />}
-        {view === 'setup-key' && <KeySetup kind={kind} settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => setView('key')} onStart={() => void beginSession(kind)} />}
+        {view === 'setup-interval' && <IntervalSetup settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => navigateBackTo('home')} onStart={() => void beginSession('interval')} />}
+        {view === 'setup-chord' && <ChordSetup kind={kind as Extract<PracticeKind, 'triad-fill' | 'spread-triad-fill' | 'chord-tone' | 'drop2-voicing' | 'shell-voicing'>} settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => navigateBackTo(kind === 'drop2-voicing' || kind === 'shell-voicing' ? 'seventh-practice' : 'triad-practice')} onStart={() => void beginSession(kind)} />}
+        {view === 'setup-key' && <KeySetup kind={kind} settings={settings} setSettings={setSettings} starting={starting} notice={notice} onBack={() => navigateBackTo('key')} onStart={() => void beginSession(kind)} />}
 
         {view === 'quiz' && question && <section className="quiz-view">
           <div className="quiz-header">
@@ -486,7 +572,7 @@ function App() {
         </section>}
 
         {view === 'wrongs' && <section className="wrong-view panel">
-          <button type="button" className="back-button" onClick={() => setView('home')}>← 返回首页</button><div className="eyebrow">REVIEW</div><h1>错题复习</h1>
+          <button type="button" className="back-button" onClick={() => navigateBackTo('home')}>← 返回首页</button><div className="eyebrow">REVIEW</div><h1>错题复习</h1>
           <div className="chip-row">{(['all', 'interval', 'triad-fill', 'spread-triad-fill', 'chord-tone', 'drop2-voicing', 'shell-voicing', 'scale-degree', 'progression'] as const).map((filter) => <button type="button" key={filter} className={wrongFilter === filter ? 'chip selected' : 'chip'} onClick={() => setWrongFilter(filter)}>{filter === 'all' ? '全部' : KIND_NAMES[filter]}</button>)}</div>
           {filteredWrongItems.length ? <><div className="wrong-list">{filteredWrongItems.map((item) => <div className="wrong-row" key={item.key}><span className="wrong-kind">{KIND_NAMES[item.kind]}</span><strong><QuestionSummary question={item.question} notation={settings.chordNotation} /></strong><small>累计答错 {item.wrongCount} 次</small></div>)}</div><button type="button" className="primary-button" disabled={starting} onClick={() => void beginSession(filteredWrongItems[0].kind, filteredWrongItems.slice(0, 10).map((item) => item.question))}>{starting ? '正在准备音源…' : `复习这 ${Math.min(10, filteredWrongItems.length)} 道题`}</button></> : <div className="empty-state"><span>✓</span><h2>还没有错题</h2><p>答错的题会自动保存在这里。</p></div>}
         </section>}
@@ -515,7 +601,7 @@ function App() {
   )
 }
 
-function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
+function HomeView({ stats, installPrompt, onInstall, onDockChange, onChoose }: { stats: LifetimeStats; installPrompt: BeforeInstallPromptEvent | null; onInstall: () => void; onDockChange: (docked: boolean) => void; onChoose: (module: 'interval' | 'chord' | 'key') => void }) {
   const [mastheadOpen, setMastheadOpen] = useState(true)
   const [installHelpOpen, setInstallHelpOpen] = useState(false)
   const mastheadManuallyClosed = useRef(false)
@@ -523,13 +609,31 @@ function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: Lifeti
   const attempts = useCountUp(stats.attempts)
   const accuracy = useCountUp(stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0)
 
+  const homeRef = useRef<HTMLElement>(null)
+  const mastheadRef = useRef<HTMLDivElement>(null)
+  const mastheadPanelRef = useRef<HTMLDivElement>(null)
+  const wordmarkTrackRef = useRef<HTMLDivElement>(null)
+  const wordmarkRef = useRef<HTMLSpanElement>(null)
+  const featureRef = useRef<HTMLElement>(null)
+
   useEffect(() => {
-    const updateMasthead = () => {
-      const nearTop = window.scrollY < Math.min(96, Math.max(52, window.innerHeight * .08))
-      setMastheadOpen(nearTop && !mastheadManuallyClosed.current)
+    const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 701px)') : undefined
+    if (!mq) return
+    let dispose = () => {}
+    const arm = () => {
+      dispose()
+      if (!mq.matches) return
+      const updateMasthead = () => {
+        const nearTop = window.scrollY < Math.min(96, Math.max(52, window.innerHeight * .08))
+        setMastheadOpen(nearTop && !mastheadManuallyClosed.current)
+      }
+      updateMasthead()
+      window.addEventListener('scroll', updateMasthead, { passive: true })
+      dispose = () => window.removeEventListener('scroll', updateMasthead)
     }
-    window.addEventListener('scroll', updateMasthead, { passive: true })
-    return () => window.removeEventListener('scroll', updateMasthead)
+    arm()
+    mq.addEventListener('change', arm)
+    return () => { dispose(); mq.removeEventListener('change', arm) }
   }, [])
 
   const toggleMasthead = () => {
@@ -539,12 +643,113 @@ function HomeView({ stats, installPrompt, onInstall, onChoose }: { stats: Lifeti
     })
   }
 
-  return <section className="home-view editorial-home">
-    <div className={mastheadOpen ? 'home-masthead open' : 'home-masthead'}>
+  useEffect(() => {
+    try { window.localStorage.removeItem('intervals.mobileMastheadWidthPreview') } catch { /* 隐私模式下忽略 */ }
+  }, [])
+
+  useLayoutEffect(() => {
+    const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 700px)') : undefined
+    const home = homeRef.current
+    const masthead = mastheadRef.current
+    const panel = mastheadPanelRef.current
+    const track = wordmarkTrackRef.current
+    const wordmark = wordmarkRef.current
+    const feature = featureRef.current
+    const copy = feature?.querySelector<HTMLElement>('.home-feature-copy')
+    const topbar = document.querySelector<HTMLElement>('.topbar')
+    const brandLabel = document.querySelector<HTMLElement>('.brand-copy strong')
+    if (!mq || !home || !masthead || !panel || !track || !wordmark || !feature || !copy || !topbar || !brandLabel) return
+    let dispose = () => {}
+    const arm = () => {
+      dispose()
+      if (!mq.matches) { onDockChange(false); return }
+      let collapsed = false
+      let active = true
+      let settleTimer = 0
+      panel.classList.add('masthead-no-transition')
+      topbar.classList.add('topbar-no-transition')
+      const measureDock = () => {
+        const measuringCollapsed = panel.classList.contains('collapsed')
+        if (measuringCollapsed) panel.classList.add('measuring-dock')
+        const trackRect = track.getBoundingClientRect()
+        const wordmarkRect = wordmark.getBoundingClientRect()
+        const targetRect = brandLabel.getBoundingClientRect()
+        const scale = targetRect.width / wordmarkRect.width
+        const localLeft = wordmarkRect.left - trackRect.left
+        const localTop = wordmarkRect.top - trackRect.top
+        home.style.setProperty('--masthead-dock-x', `${targetRect.left - trackRect.left - localLeft * scale}px`)
+        home.style.setProperty('--masthead-dock-y', `${targetRect.top - trackRect.top - localTop * scale}px`)
+        home.style.setProperty('--masthead-dock-scale', `${scale}`)
+        if (measuringCollapsed) panel.classList.remove('measuring-dock')
+      }
+      const sizeWordmark = () => {
+        masthead.style.minHeight = `${panel.offsetHeight}px`
+        measureDock()
+      }
+      const update = () => {
+        const panelRect = panel.getBoundingClientRect()
+        const featureRect = feature.getBoundingClientRect()
+        const whiteTop = Math.min(panelRect.height, Math.max(0, featureRect.top - panelRect.top))
+        const whiteBottom = Math.min(panelRect.height, Math.max(0, panelRect.bottom - featureRect.bottom))
+        home.style.setProperty('--masthead-white-top', `${whiteTop}px`)
+        home.style.setProperty('--masthead-white-bottom', `${whiteBottom}px`)
+
+        const limit = topbar.offsetHeight + panel.offsetHeight + 14
+        const expandTop = Math.min(96, Math.max(52, window.innerHeight * 0.08))
+        const copyTop = copy.getBoundingClientRect().top
+        if (!collapsed && copyTop < limit) {
+          collapsed = true
+          measureDock()
+          panel.classList.add('collapsed')
+          onDockChange(true)
+        } else if (collapsed && window.scrollY < expandTop) {
+          collapsed = false
+          panel.classList.remove('collapsed')
+          onDockChange(false)
+        }
+      }
+      const resize = () => { sizeWordmark(); update() }
+      resize()
+      void document.fonts?.ready.then(() => { if (active) resize() })
+      settleTimer = window.setTimeout(() => {
+        panel.classList.remove('masthead-no-transition')
+        topbar.classList.remove('topbar-no-transition')
+      }, 350)
+      window.addEventListener('scroll', update, { passive: true })
+      window.addEventListener('resize', resize)
+      dispose = () => {
+        active = false
+        window.clearTimeout(settleTimer)
+        window.removeEventListener('scroll', update)
+        window.removeEventListener('resize', resize)
+        panel.classList.remove('collapsed')
+        panel.classList.remove('measuring-dock')
+        panel.classList.remove('masthead-no-transition')
+        topbar.classList.remove('topbar-no-transition')
+        masthead.style.minHeight = ''
+        home.style.removeProperty('--masthead-white-top')
+        home.style.removeProperty('--masthead-white-bottom')
+        home.style.removeProperty('--masthead-dock-x')
+        home.style.removeProperty('--masthead-dock-y')
+        home.style.removeProperty('--masthead-dock-scale')
+      }
+    }
+    arm()
+    mq.addEventListener('change', arm)
+    return () => { dispose(); mq.removeEventListener('change', arm) }
+  }, [onDockChange])
+
+  return <section className="home-view editorial-home" ref={homeRef}>
+    <div className={mastheadOpen ? 'home-masthead open' : 'home-masthead'} ref={mastheadRef}>
       <button type="button" className="home-masthead-toggle" aria-label={mastheadOpen ? '收起首页字标' : '展开首页字标'} aria-expanded={mastheadOpen} onClick={toggleMasthead}><img src={mastheadOpen ? '/Intervals/images/ui-icons/chevron-up.png' : '/Intervals/images/ui-icons/chevron-down.png'} alt="" /></button>
-      <div className="home-masthead-panel" aria-hidden={!mastheadOpen}><span>INTERVALS</span></div>
+      <div className="home-masthead-panel" ref={mastheadPanelRef} aria-hidden={!mastheadOpen}>
+        <div className="home-masthead-wordmark-track" ref={wordmarkTrackRef}>
+          <span className="home-masthead-wordmark" ref={wordmarkRef}>INTERVALS</span>
+          <span className="home-masthead-wordmark home-masthead-wordmark-white" aria-hidden="true">INTERVALS</span>
+        </div>
+      </div>
     </div>
-    <figure className="home-feature">
+    <figure className="home-feature" ref={featureRef}>
       <picture>
         <source srcSet="/Intervals/images/home-editorial-hero-detail-v2-4k.webp" type="image/webp" />
         <img src="/Intervals/images/home-editorial-hero-detail-v2.png" alt="红色节拍器、透明音叉和荧光黄耳形雕塑置于亮蓝背景上" fetchPriority="high" />
