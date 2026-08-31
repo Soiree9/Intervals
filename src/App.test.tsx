@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTriadFillQuestion } from './domain/questions'
 import App from './App'
+import appStyles from './App.css?raw'
 import { DEFAULT_SETTINGS } from './services/storage'
 
 const audio = vi.hoisted(() => ({
@@ -52,6 +53,17 @@ describe('App quiz navigation and triad playback', () => {
       unobserve() {}
       disconnect() {}
     })
+  })
+
+  it('caps the desktop editorial scale without changing the mobile hero proportions', () => {
+    expect(appStyles).toMatch(/\.editorial-home\s*{[^}]*max-width:\s*1520px/)
+    expect(appStyles).toMatch(/\.home-masthead-wordmark\s*{[^}]*font-size:\s*clamp\(64px, 8\.8vw, 138px\)/)
+    expect(appStyles).toMatch(/\.home-feature > picture > img\s*{[^}]*aspect-ratio:\s*16 \/ 9/)
+
+    const mobileStyles = appStyles.slice(appStyles.indexOf('@media (max-width: 700px)'))
+    expect(mobileStyles).toMatch(/\.home-masthead-wordmark\s*{[^}]*font-size:\s*var\(--masthead-fill-size, 13\.8vw\)/)
+    expect(mobileStyles).toMatch(/\.home-feature > picture > img\s*{[^}]*aspect-ratio:\s*3 \/ 4/)
+    expect(mobileStyles).toMatch(/\.home-feature-copy h1\s*{[^}]*font-size:\s*46px/)
   })
 
   it('keeps the selected left masthead and exposes the brand wordmark on nested views', async () => {
