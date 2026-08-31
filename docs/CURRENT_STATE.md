@@ -35,7 +35,7 @@ Last inspected: 2026-08-31
 当前有两条并行工作线：
 
 1. `codex/furch-audio-preview`：Furch 音源处理、试听采样与播放路由只在该分支继续，不进入 `main`；等待用户试听第二版（细节见该分支的文档版本）。
-2. `feat/ui-polish`：移动端首页字标已选定 A 贴左；蓝字进入首图后按交界逐步变白，接近正文时由同一个字标缩小上移、渐变为墨黑并回收到完整顶栏品牌组合。手机隐藏滚动条但不接管滚动，非首页常驻完整品牌组合；桌面端保留原有字标收放行为。本分支只包含手机端 UI/交互及其直接测试与文档，不包含 Furch 音源、原始样本或音源试听实现。
+2. `feat/ui-polish`：移动端首页字标已选定 A 贴左；蓝字进入首图后按交界逐步变白，接近正文时由同一个字标缩小上移、渐变为墨黑并回收到完整顶栏品牌组合。手机隐藏滚动条但不接管滚动，非首页常驻完整品牌组合；桌面端保留原有字标收放行为。本分支只包含手机端 UI/交互及其直接测试与文档，不包含 Furch 音源、原始样本或音源试听实现；已独立推送到 `origin/feat/ui-polish`，尚未合并 `main`。
 
 第一阶段首页编辑式视觉、共享顶部导航、模块图片目录、favicon/PWA 细线图标以及页脚与安装说明排版已随 V0.9.0 发布，用户可见细节只由 [`../CHANGELOG.md`](../CHANGELOG.md) 保存；胶片颗粒主图留档，只有用户以后明确要求时才接回。
 
@@ -59,7 +59,7 @@ Last inspected: 2026-08-31
 
 ## 验证状态
 
-- 2026-08-31，准备独立推送 `feat/ui-polish` 手机 UI/交互范围时通过 `npm.cmd run check`：lint、17 个测试文件共 144 项测试、TypeScript/Vite/PWA 生产构建。最终提交范围相对 `main` 只包含 `src/App.tsx`、`src/App.css`、`src/App.test.tsx` 及对应的 `PRODUCT.md`、`DECISIONS.md`、`CURRENT_STATE.md`；已移除无关的题目生成测试超时调整，不包含 Furch 音源、原始样本、试听路由、临时浏览器目录或日志。
+- 2026-08-31，手机 UI/交互提交 `171d388` 已推送到 `origin/feat/ui-polish`，推送前通过 `npm.cmd run check`：lint、17 个测试文件共 144 项测试、TypeScript/Vite/PWA 生产构建。实现提交范围相对 `main` 只包含 `src/App.tsx`、`src/App.css`、`src/App.test.tsx` 及对应的 `PRODUCT.md`、`DECISIONS.md`、`CURRENT_STATE.md`；已移除无关的题目生成测试超时调整，不包含 Furch 音源、原始样本、试听路由、临时浏览器目录或日志。`main`、正式版本、Git 标签、Release 与 Pages 均未改变。
 - 2026-08-28，`feat/ui-polish` 当前移动端品牌回收、滚动位置条隐藏与返回键实现通过 `npm.cmd run check`：lint、17 个测试文件共 143 项测试、TypeScript/Vite/PWA 生产构建。Playwright Chromium 在 390×844 下确认 A 贴左初始全蓝、下滑 40px 后按图片交界部分变白；接近正文后，单一 `INTERVALS` 使用 0.56 秒 transform 与 0.52 秒线性色彩过渡，到达品牌图标右侧时与隐藏占位文字的左上坐标和宽度一致，最终为墨黑并显现 `EAR TRAINING`，动画等待前后 `scrollY` 不再变化。二级音程设置页确认完整品牌组合常驻；`html`、`body`、`#root` 与应用外壳的滚动条计算值均为 `none`，WebKit 滚动条宽度为 `0px`，页面仍可滚动。真实浏览器返回可从音程设置退回首页；答题中返回后仍停在第 1 题，点击“× 结束”可正常退出。390、360 与 320px 的手机视口均无横向溢出；1440×1000 下手机白色层不显示、桌面原收放按钮可正常切换；全程错误级控制台输出为 0。最终真机动画与返回手势手感仍等待用户确认。
 - 2026-08-26，本地页脚与安装说明微调通过 `npm.cmd run check`：lint、17 个测试文件共 140 项测试，以及 TypeScript/Vite/PWA 生产构建。真实本地页面在 1440 × 1000 和 390 × 844 下确认安装说明可展开、收起，页脚许可可开合；窄屏无横向溢出，错误级控制台输出为 0。
 - 2026-08-26，V0.9.0 发布后核对远端：release commit `9d96cf8` 的 Pages workflow `32932686854` 成功；稳定网址返回 200 且加载新构建 `index-D4KdwK5S.js` 与 `index-xMU9fiCx.css`，manifest、`sw.js`、favicon、PWA 图标与首页模块图片均返回 200；线上 `sw.js` 预缓存含新构建哈希且无旧哈希残留。线上首页、页脚与安装说明的真实视觉效果尚未在浏览器复核。
